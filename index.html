@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' data:; connect-src 'none'; font-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
+<title>✦ 星詠みの館 ✦</title>
+<style>
+  :root {
+    --ts: 0.6s;
+    --site-w: 720px;
+    --fortune-ink: #2d073f;
+    --fortune-panel: #fff5c8;
+    --fortune-pink: #ff7ad9;
+    --fortune-cyan: #58f0ff;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    min-height:100vh;
+    height:100dvh;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    font-family:'MS PGothic','Hiragino Kaku Gothic ProN',sans-serif;
+    overflow:hidden;
+    transition:background var(--ts);
+  }
+  #header, #chat, #input-area { width:min(100%, var(--site-w)); }
+
+  /* === FORTUNE === */
+  body.fortune-mode {
+    color:var(--fortune-ink);
+    background-color:#16001d;
+    background-image:
+      radial-gradient(circle at 12px 10px, #fff7a8 0 1px, transparent 2px),
+      radial-gradient(circle at 45px 38px, #ff7ad9 0 1px, transparent 2px),
+      radial-gradient(circle at 70px 18px, #58f0ff 0 1px, transparent 2px),
+      repeating-linear-gradient(45deg, #2b0040 0 7px, #1b0029 7px 14px);
+    background-size:82px 64px, 96px 78px, 120px 88px, 28px 28px;
+  }
+  body.fortune-mode::before {
+    content:"";
+    position:fixed;
+    inset:0;
+    pointer-events:none;
+    background:
+      linear-gradient(90deg, #ffffff0a 1px, transparent 1px),
+      linear-gradient(#ffffff08 1px, transparent 1px);
+    background-size:12px 12px;
+    mix-blend-mode:screen;
+    opacity:.75;
+  }
+  body.fortune-mode #header {
+    position:relative;
+    z-index:1;
+    text-align:center;
+    padding:12px 10px 8px;
+    background:
+      linear-gradient(180deg,#fff9da 0%,#ffd7f6 52%,#fff3a8 100%);
+    border:4px double #7f1499;
+    border-top:0;
+    box-shadow:0 0 0 2px #fff, 0 6px 24px #0008;
+  }
+  body.fortune-mode #header::before,
+  body.fortune-mode #header::after {
+    content:"★彡";
+    position:absolute;
+    top:12px;
+    color:#d018a8;
+    font-size:18px;
+    text-shadow:1px 1px 0 #fff, 0 0 8px #fffa7d;
+  }
+  body.fortune-mode #header::before { left:12px; }
+  body.fortune-mode #header::after { right:12px; transform:scaleX(-1); }
+  body.fortune-mode #header h1 {
+    display:inline-block;
+    font-family:'Yu Mincho','Hiragino Mincho ProN','MS Mincho',serif;
+    font-size:23px;
+    font-weight:700;
+    letter-spacing:3px;
+    color:#6d007e;
+    background:linear-gradient(90deg,#6d007e,#e30097 42%,#744000 70%,#6d007e);
+    -webkit-background-clip:text;
+    -webkit-text-fill-color:transparent;
+    text-shadow:0 0 0 #6d007e, 1px 1px 0 #fff36e, 0 0 10px #ff7ad9;
+  }
+  body.fortune-mode #header p {
+    display:inline-block;
+    font-size:12px;
+    color:#5c166d;
+    margin-top:5px;
+    padding:2px 8px;
+    background:#ffffff99;
+    border:1px dashed #d018a8;
+  }
+  .counter-strip {
+    margin:7px auto 0;
+    padding:4px 8px;
+    width:min(100%, 420px);
+    color:#111;
+    background:#fff;
+    border:2px inset #e8c600;
+    font-size:12px;
+    line-height:1.35;
+    box-shadow:inset 0 0 8px #ffe66a;
+  }
+  .counter-strip b {
+    color:#d60000;
+    font-family:'Courier New',monospace;
+    font-size:15px;
+    letter-spacing:1px;
+  }
+  .tiny-notice {
+    margin-top:5px;
+    color:#0b3c73;
+    font-size:11px;
+    line-height:1.25;
+  }
+  .tiny-notice span {
+    color:#e60073;
+    font-weight:bold;
+    animation:blinkText 1.1s steps(2,end) infinite;
+  }
+  @keyframes blinkText { 50%{opacity:.25} }
+
+  /* === TERMINAL === */
+  body.terminal-mode { background:#0a0a0a; color:#00ff88; font-family:'Courier New',monospace; }
+  body.terminal-mode #header { text-align:center; padding:14px 12px 10px; border-bottom:1px solid #00ff8833; background:#0d0d0d; }
+  body.terminal-mode #header h1 { font-size:16px; color:#00ff88; letter-spacing:3px; font-family:'Courier New',monospace; background:none; -webkit-text-fill-color:#00ff88; }
+  body.terminal-mode #header p { font-size:11px; color:#00ff8888; margin-top:4px; font-family:'Courier New',monospace; }
+  body.terminal-mode .counter-strip,
+  body.terminal-mode .tiny-notice { display:none; }
+
+  /* === CHAT === */
+  #chat { flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:10px; scroll-behavior:smooth; }
+  .msg { max-width:82%; padding:10px 14px; border-radius:12px; line-height:1.7; font-size:14.5px; white-space:pre-wrap; animation:fadeUp .3s ease; }
+  @keyframes fadeUp { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+
+  body.fortune-mode #chat {
+    position:relative;
+    z-index:1;
+    margin-top:8px;
+    background:#fff8dcdd;
+    border-left:4px double #7f1499;
+    border-right:4px double #7f1499;
+    box-shadow:0 0 0 2px #fff, 0 0 22px #0008;
+  }
+  body.fortune-mode .bot {
+    align-self:flex-start;
+    background:#fffdf2;
+    border:2px ridge #d018a8;
+    color:#351047;
+    border-radius:2px 14px 14px 14px;
+    box-shadow:3px 3px 0 #ffd84d, 0 0 10px #ff7ad955;
+  }
+  body.fortune-mode .bot::first-line { color:#9b006e; font-weight:bold; }
+  body.fortune-mode .user {
+    align-self:flex-end;
+    background:#1f0030;
+    border:2px outset #58f0ff;
+    color:#fff66b;
+    border-radius:14px 2px 14px 14px;
+    box-shadow:-3px 3px 0 #ff7ad9;
+  }
+  body.terminal-mode .bot { align-self:flex-start; background:#111a14; border:1px solid #00ff8833; color:#00ff88; border-radius:6px; font-family:'Courier New',monospace; }
+  body.terminal-mode .user { align-self:flex-end; background:#0a1f10; border:1px solid #00ff8822; color:#88ffcc; border-radius:6px; font-family:'Courier New',monospace; }
+
+  /* Key fragment badge */
+  .key-fragment { display:inline-block; padding:4px 12px; margin:4px 0; background:#4a1d8e; border:1px solid #9b6fdb; border-radius:4px; color:#ffd700; font-weight:bold; font-size:16px; letter-spacing:2px; font-family:'Courier New',monospace; }
+  body.fortune-mode .key-fragment {
+    background:#120020;
+    border:2px groove #fff66b;
+    color:#58f0ff;
+    text-shadow:0 0 6px #58f0ff;
+    box-shadow:0 0 0 2px #d018a8;
+  }
+
+  /* Terminal accents */
+  .cmd-hl { color:#ff8844; font-weight:bold; }
+  .sin-count { color:#888; font-size:12px; margin-left:6px; }
+
+  /* Typing indicator */
+  .typing-dots::after { content:''; animation:dots 1.2s steps(4) infinite; }
+  @keyframes dots { 0%{content:''} 25%{content:'.'} 50%{content:'..'} 75%{content:'...'} }
+
+  /* Location reveal */
+  .loc-reveal { font-size:17px; text-align:center; padding:16px; margin:8px 0; border:2px solid; border-radius:8px; animation:glow 1.5s ease-in-out infinite alternate; }
+body.terminal-mode .loc-reveal { border-color:#ffdd00; color:#ffdd00; }
+body.terminal-mode input:disabled,
+body.terminal-mode button:disabled { opacity:.55; cursor:not-allowed; }
+@keyframes glow { from{box-shadow:0 0 5px #ffdd0033} to{box-shadow:0 0 25px #ffdd0088} }
+
+  /* Glitch */
+  .glitch-overlay { position:fixed; inset:0; background:#0a0a0a; z-index:9999; display:none; justify-content:center; align-items:center; font-family:'Courier New',monospace; color:#00ff88; font-size:14px; }
+  .glitch-overlay.active { display:flex; }
+  .glitch-text { text-align:center; line-height:2; animation:flicker .1s infinite; }
+  @keyframes flicker { 0%{opacity:1} 50%{opacity:.7} 100%{opacity:1} }
+
+  /* Input */
+  #input-area { display:flex; padding:10px 14px; gap:8px; transition:background var(--ts),border var(--ts); }
+  body.fortune-mode #input-area {
+    position:relative;
+    z-index:1;
+    background:#ffe7fb;
+    border:4px double #7f1499;
+    border-bottom:0;
+    box-shadow:0 0 0 2px #fff, 0 -4px 20px #0008;
+  }
+  body.terminal-mode #input-area { background:#0d0d0d; border-top:1px solid #00ff8833; }
+  #input-area input { flex:1; padding:10px 14px; font-size:15px; border-radius:8px; outline:none; transition:all var(--ts); }
+  body.fortune-mode #input-area input {
+    background:#fff;
+    border:2px inset #c000a0;
+    color:#260033;
+    font-family:'MS PGothic','Hiragino Kaku Gothic ProN',sans-serif;
+    border-radius:2px;
+    box-shadow:inset 0 0 6px #ffd84d;
+  }
+  body.terminal-mode #input-area input { background:#0a0a0a; border:1px solid #00ff8855; color:#00ff88; font-family:'Courier New',monospace; border-radius:4px; }
+  #input-area button { padding:10px 18px; font-size:15px; font-weight:bold; border:none; border-radius:8px; cursor:pointer; transition:all var(--ts); }
+  body.fortune-mode #input-area button {
+    background:linear-gradient(180deg,#fff66b 0%,#ff9a00 48%,#e64500 100%);
+    color:#420026;
+    border:2px outset #ffd84d;
+    border-radius:2px;
+    font-family:'MS PGothic','Hiragino Kaku Gothic ProN',sans-serif;
+    text-shadow:1px 1px 0 #fff;
+    box-shadow:0 0 8px #ff7ad9;
+  }
+  body.terminal-mode #input-area button { background:#00ff88; color:#0a0a0a; font-family:'Courier New',monospace; border-radius:4px; }
+
+  /* Fortune corruption stages */
+  body.fortune-mode[class*="corrupt-"] {
+    animation:bgDrift 8s steps(3,end) infinite;
+  }
+  body.fortune-mode.corrupt-1 #header h1 {
+    text-shadow:2px 0 0 #58f0ff, -1px 0 0 #ff7ad9, 0 0 10px #fff36e;
+  }
+  body.fortune-mode.corrupt-1 .counter-strip {
+    filter:hue-rotate(15deg);
+  }
+  body.fortune-mode.corrupt-2 #header,
+  body.fortune-mode.corrupt-2 #chat {
+    filter:saturate(1.15) hue-rotate(6deg);
+  }
+  body.fortune-mode.corrupt-2 .msg:not(.user):not(.protected-msg) {
+    text-shadow:1px 0 0 #58f0ff, -1px 0 0 #ff7ad9;
+  }
+  body.fortune-mode.corrupt-3::after,
+  body.fortune-mode.corrupt-4::after,
+  body.fortune-mode.corrupt-5::after {
+    content:"";
+    position:fixed;
+    inset:0;
+    pointer-events:none;
+    z-index:2;
+    background:
+      linear-gradient(90deg, transparent, #58f0ff18, transparent 42%, #ff7ad918, transparent);
+    mix-blend-mode:multiply;
+  }
+  body.fortune-mode.corrupt-3 #header {
+    filter:contrast(1.12) hue-rotate(-10deg);
+  }
+  body.fortune-mode.corrupt-3 .counter-strip {
+    letter-spacing:1px;
+    box-shadow:inset 0 0 8px #ffe66a, 0 0 12px #58f0ff;
+  }
+  body.fortune-mode.corrupt-3 .msg:not(.user):not(.typing-dots):not(.protected-msg) {
+    filter:contrast(1.15) saturate(1.2);
+  }
+  body.fortune-mode.corrupt-4 {
+    animation:bgDrift 5.5s steps(2,end) infinite;
+  }
+  body.fortune-mode.corrupt-4 #header,
+  body.fortune-mode.corrupt-4 #chat {
+    box-shadow:4px 0 0 #58f0ff, -4px 0 0 #ff7ad9, 0 0 22px #000a;
+  }
+  body.fortune-mode.corrupt-4 #header h1,
+  body.fortune-mode.corrupt-4 .msg:not(.user):not(.typing-dots):not(.protected-msg) {
+    animation:textGlitch .8s steps(2,end) infinite;
+  }
+  body.fortune-mode.corrupt-5 {
+    background-blend-mode:screen,screen,screen,normal;
+    animation:bgDrift 4s steps(2,end) infinite;
+  }
+  body.fortune-mode.corrupt-5 #header {
+    background:linear-gradient(180deg,#fff 0%,#b7fff9 46%,#ffb3ec 47%,#ffe66a 100%);
+  }
+  body.fortune-mode.corrupt-5 #header h1 {
+    color:#2bff9f;
+    -webkit-text-fill-color:#2bff9f;
+    background:none;
+    text-shadow:3px 0 0 #ff004d, -3px 0 0 #00e5ff, 0 0 12px #000;
+  }
+  body.fortune-mode.corrupt-5 .counter-strip {
+    color:#fff;
+    background:#17001f;
+    border-color:#58f0ff;
+    box-shadow:inset 0 0 8px #ff7ad9, 0 0 16px #58f0ff;
+  }
+  body.fortune-mode.corrupt-5 .counter-strip b {
+    color:#2bff9f;
+    text-shadow:0 0 8px #2bff9f;
+  }
+  body.fortune-mode.corrupt-5 .msg:not(.user):not(.typing-dots):not(.protected-msg) {
+    background:#fff;
+    color:#17001f;
+    border-color:#2bff9f;
+  }
+  body.fortune-mode.corrupt-4 #input-area,
+  body.fortune-mode.corrupt-5 #input-area {
+    z-index:3;
+    transform:none;
+  }
+  body.fortune-mode[class*="corrupt-"] .key-fragment {
+    filter:none;
+    animation:none;
+    text-shadow:0 0 6px #58f0ff;
+  }
+  body.fortune-mode[class*="corrupt-"] .protected-msg {
+    filter:none;
+    animation:none;
+    text-shadow:none;
+  }
+  @keyframes bgDrift {
+    0%{background-position:0 0,0 0,0 0,0 0}
+    50%{background-position:8px -4px,-5px 6px,4px 9px,14px 0}
+    100%{background-position:0 0,0 0,0 0,0 0}
+  }
+  @keyframes textGlitch {
+    0%,100%{text-shadow:2px 0 0 #58f0ff, -2px 0 0 #ff7ad9}
+    50%{text-shadow:-2px 0 0 #58f0ff, 2px 0 0 #ff7ad9}
+  }
+
+  @media (max-width:480px) {
+    body.fortune-mode #header { padding:10px 8px 7px; }
+    body.fortune-mode #header::before,
+    body.fortune-mode #header::after { display:none; }
+    body.fortune-mode #header h1 { font-size:20px; letter-spacing:2px; }
+    .counter-strip { font-size:11px; padding:3px 6px; }
+    .tiny-notice { font-size:10.5px; }
+    #chat { padding:12px 10px; gap:9px; }
+    .msg { max-width:90%; font-size:14px; padding:9px 11px; }
+    #input-area { padding:9px 10px; }
+    #input-area button { padding:10px 13px; }
+  }
+</style>
+</head>
+<body class="fortune-mode">
+
+<div id="header">
+  <h1 id="fortuneTitle">✦ 星詠みの館 ✦</h1>
+  <p id="fortuneSubtitle">あなたの運命を紐解きます</p>
+  <div class="counter-strip">あなたは <b id="visitorCounter">072931</b> 番目のお客様です。キリバン報告は星に願ってください。</div>
+  <div class="tiny-notice"><span id="noticeBadge">無料鑑定中</span> / <span id="noticeLine">名前・悩み・直感で浮かんだ言葉を入力できます</span></div>
+</div>
+<div id="chat"></div>
+<div id="input-area">
+  <input type="text" id="userInput" placeholder="なんでも聞いてみて..." autocomplete="off">
+  <button onclick="send()">占う</button>
+</div>
+<div class="glitch-overlay" id="glitch">
+  <div class="glitch-text" id="glitch-text"></div>
+</div>
+
+<script>
+// Public build data: sensitive strings are encrypted and only decrypted from matching user input.
+const OBF = {"v":2,"n":[{"h":"20c180798a3026d95cf5d472a2a8d4569ffda05f7fe5be22819885c224f3d8c4","i":"fqKMWH1lGSaaDDE7","c":"8aadiUrqM3RPUlc7iIkqRaf/JOrZKIiRQtNx2fgHeLpEba1pk3gQ4yXgen3Hd5Q178zmJTYmMXmgRDOn+rRU5mexP8T1XlG5yA1loD9vPdNRK1eJJfqZBcYlMrpOPMrg6XrVAfK/oGhFhiWxupVKhczt5EWtDKrrLR3kRJaew7O+QQLUZwoazOiUh64azcOkM05YFwM5ChWvl3UbCwW00XDIjrKfKGOdjYkcedrqJchrA0JIKVrTFzgInaI2vZmaARvUNQdQWXZnC61sWIS6Oh6FoSjHyNQ5etzMTCFAAhO5rbXX42f53NYxqfB4lPurT6sQt7x21zylvaAO1rMs7P5Ty7HNcDADH3SxMUVLkLN/W2IzZOTDUr/tAhgf7k4zIGDYNrECtkbUmvUh60Q="},{"h":"02fec9e76c99819cb08891083eba24d18d9c445a46ca64366e1bb2b28c2f9d9e","i":"IMal9vFVIytmvulT","c":"HwtLneBnnJZv4Xa7dVNNmvVAOUL07CHvjts7AR2wIX/fKVw330ls6UNv0IMivAINJKY2BQDx/+ua1mmXtt81n5cRMKn4dZv3vT7M+Hu09oMKZVHv9WbU1cvJsH+Umes6vsoqQANiHRJOrrLtacE7RXpjrxatmOL1roNIxQz8EJLxKjp1HANoj7MQGHYIVhMzGfInuf/mg1yEu/qrUAanncpzzaH6zxbSMHMfBqYWOMoEwKBccGhP5FYyl7icMaxQORolkJixmka1JCM27mwQg6YtnUSXdzpVXoGnc8YCD60gp/oj6Bo1BKxEfRpiQX1zHz0IcW47FkZ869Uu7SeMxiQhfhjAIdmfH8GNZt51BfR/YOuqWHi+6aicroL5i/gR9INyHB5D7dQi6Kb36x8="},{"h":"e61a5d3e0a72caaea2654f1800884d90f03c65ec953a1f2b8bb8720622d07ddd","i":"nBt0b5GqQESt1hfv","c":"ywlD+B8jAqjCDW9njz6vSq8sF9b8xPCMJ9uJ1kh0Y9/DuFMzcQy+SlIXQZRpAko47ljYfPm9It2GRAUR/TgmFqCYm8J2gmhPbHuhFhUpCfJ37nqp9FVVoW9RFcJ13YOFZZkHvTwzBvbG3M9aig/EHJ+bUnP32PhTQD81Mj2JSu9K1U45SOLZW7H1TydH2/6KQBluqU03btw77xVDKqnZPOI4U0+ZtSKphF6uGjL5kIghytPRzRSIcVHPKlUKyfy7CmylZ3KMYFRoyEC8967GvLoyxVcw4M/Wpr/qFkD5BKLQNZwJhQ8eRqS8eeRwOSfiaf4gTczW784+Lizd1Tw68+Dtl6efdvswGUF6+8S/BIyHRB1/nwG90z90645ccHtfqpzpykgbppdM3aUe7vg="},{"h":"4a76f3fed8b32a6af6254246a913417ddc8e61837bf5f27bb14b1c5275ec6897","i":"uuDVdek4vOLoL+CX","c":"ULqPh6H1iEN+bx7fI95ZS04r10k1vGEPbB7jjshipu4kLiGNJws25vfgfEwORD/nr9jdprVrg8OxLDmQIk+aJ3w8SB4UheWmlLrfEFFjkaj+Pt8l8gHeAsLbzkC9rLROkBIKI2CjWKNOzZ72Vq6OWRhMkng41PTuUVkK6LWXnC4ak6oaojr5J0BKKXtfUHIORc9PCvKumZYfKk2vugM1SJ2X5Iuqm0k9oDxa9JD+XZD9dJjzJBg6Xl9sZ0Doz8iHgbJwz6tuMRTGnfvDsq4xSQ3hxKAekTVaFlzZUMKPKk5yGCEVmvMZh6xB/E/vLNYeYzL8VzptzsoYIIJXJZdKsgAHYFcQVgL5mtq3vdmMy2kP94zGCFg8MR0IBpvsq4l19Qc2LFuY7tWleC6BnXI="},{"h":"bc2e6ff62d1fdc7ece36252a73719aee9ae6930918db1ac3ba338d6b35d38a70","i":"4W0ucOHR6XcbhMqU","c":"huAc900qZ/IkMXuwG/FDGniaFncZ7vVJnr7xTChV0R3ShgxG8VNPXcf6ruucbpkQ0PmeUQhsUaZtId0jly2J9uKdAo6fWjfJ5HYsA5I0eeK4shoxUlsdmsK4Llv3UZPqrLOJwR64zNvwkqOWWlQeoYxaLE1xMKEGayOZPokYYq70hDU8UPYDyUFSDkMb9KzyG9rlLI/QOqMpWs/9m2CAU2zyPOkE0hiOOsEmjBK9ZGks76LsRAvvaVNbPtIJFv/QZ0tusaFWp8+L8iV5ePyXQh0J5Vih6oGXhFqvoBEtIHSb9bHjR/QXrr6yEqpwTatQBQM3prrNKxtJbxDLVBXcwQGlAQ2VeCkuUDuKUrYUhxpST4IZedYB2X3ZDnbyEd1jkSuGEuAUzZlxoDmab4Y="},{"h":"504d5b93fca4f376c647d2e2a5cda7e6ab527e80d47a0b6f75ab6c2429c1be45","i":"0TaaCSGt50xiwH0m","c":"mSXnLCRcAamBjapBAmNj0ww43E2wFPmTr6Ft8uhID8o0lpF0JOAOjv171BhrCBjF+oZoByfjFhVSiFMxvpskwYXWnuiHalSpqcXhU0SThHzp5DtjZ35Z6F2/wsfg6eroUpzd+UrsaLcpIt7mmXk+8OjJZx80oJYTRHGIDXbh08wcYAswQoCP1uTnWEnHO1RJjFXHgMBCqlnWZziSyQAKmhumqUVoQgmPIPcV0V+q2ditfc6nvLgCgs9zw6DvIGnhuocUQHqwoaZuLyeZVGus1kYbnYoHCdHZ+zmTbsdt8Co/KLxFcOM0qHzerx+T/aW9OD4NRHyZoOs78ouCkW9Nm68NbSpcKJl7H6J/fqcALEh6gq+ADjusZ/kCsgXrLVrSj+qOOKdHdY1FAqFHVG0="},{"h":"a36eec9e65e245eb17c4d967cd0899e9b6dfc3b62c62de4a667f8540f5a764b6","i":"lpBc1kuCtCAMIQQn","c":"abNQ9NOuTXK/cTzW6ubdAmjoqTGou2AkkTbUdJKcfUIEWutFTAcM7lb4Nrzfn3oq660Khm5+6Xw9iMaW7vDpfWLZm5ziZi+ZkMJrGhNUiWBOTLRMnx74+a/Wr99EeAm1M9qI2jj8Emyq7YOcyoXRgWR4R7Ve1j+e2/9SqQT32KBegGXLI2Za1LcN5sWDGCCMR9m/MS2EDFCyt3yDLCl9dYdBwRcejuyNMPF6yGIMimaMmHWM4olIBS/yZgobTX7E1nRv7KKoB1U6/pNCsfsOvXOPwizDiBXDywMKbjO1nUop+X3k8W/QsaugmXJDrKJmSza7G0EAeIXc5eTjzqF0YwdHPPGNe/RNJ1F9wWsrtzggrmxuPzqUB6NDmzbYtGMCnOy62TvMr8zyR6HUQ1Q="},{"h":"3091c1937761a707f2952c52ee7c167ebf5983b38911b21bae0be01371a435c5","i":"Hux2aMokiZfe+qLF","c":"uk3fk/CUlZ01dLDPgIaMHVOv94i6XXPXizbQXhKVM4OUvUxnl3n4EeXjPe4INOzxwga0IzaVWO7XbvkibydMmysMPianXWe30wmsXrJSUgEuarr5jPoBF4vIySsKnSMyn+9GAY/wg2CgFfNiGCJdBgpJMmyvt6JJOHdF3wxyWBJ9lI+ihSiim+nkx3FLEP4Ma6qAty3iGNAMza8D28iOa5zot9hVXD1tlLQ75cuzXqek9/XXAcr+v2nouRYJFtpXbInCIT3dVKVi2jDdgme6g+yO6UeutDDV5gKU0k6BfEic/CYgkekIYFwIO6SdbJMK//wNV4CY0kP6KbPoXNTGTKuxUzhphSjdgc30l/YJ3rL9FMG3VF6FSPT1r3sJ8SF6oDkxQja++tQ/TkMRD/A="},{"h":"0bcdfc15a11b18c8850435b78674e7c76383e49fdeca0a02cbbc877939f1bb49","i":"sp9AuBWMy6h0pTab","c":"pXoL+iKsh60POfA8qZGXDvURoGvt2CCtkHKU3twizSxLOzjwwdKhgLuSVCPKpBBUNM6hCtffrn4mP/RT9HO/zvE9aLl32+sYC589q2wdn27LiBpHaemHS/ZMSEC3JggNzSgxrMRLiXggksW2w3amktOepOfn+beV5zs0XtyTpfY144ndsJQrLGRatjRmKG4uj6syxPD6v+MQVBIjeX0ZxTzep2c+H+w4iULOknkk6+PeTBq6YXk+9MIKqwjDEn6lFeM0PxYYnUttN6UQ/L1UzUscgbvG+50FyBXKB/Lo8lYqNwKXksDnhzhB78u31I/6vuyhxaWgkeR1LfZajlXho0NfJurxNY2CG3zrHsek8/73yIvGD4YHWpPuOUh+b7QcPji0O1KW0vdmjbca7Yg="},{"h":"43b54ddedc918f93923cb0d18e57237fcc56c4f9fd5bb60b5058c025a0ba32f0","i":"RfEiVdDKpUC5eFyZ","c":"Tx/8Nzfmkhcjxs8eWQfD0LcErE3R/KwINpDPXYy925Fy5h1HpMHmVEc3OMgj1M8UPkr0U6W2Np+RRWHLE4YubZSQot/zI2XwOXO50Dzq5QXBvBySz6Z85+qdaM0vpcOk76L4WvdT7f0fNeMcf7VOuXxYGUPEqGfo2suO7W3q4z7msBHEXL010Kt5qoBNe55lpXSfYog6PzOumrR5nLhgLpWe+HZimu9J6q4ELDaWOB3hvIWoQU+MgUITuC8RrQr9J3GRaiUZ54rApun0MghEogkkFbfzJ/XumCgNlI42ciFDDwudMXoBK/hyncx5MBWgla1Hj3xZ/Sb0yj9wbO0Y0Q=="},{"h":"faeaa384f3e1cc9c231fa7521b726d7a0aacf987a2bb62306abeb16c44ebe545","i":"AoVGO7SSv9KnW0nx","c":"KKfLWqZ8JmGgvRjvN9yMIQEwNVakf6i693mjohOH9Ot8cLyzPI8UwrNRwx7y47ZIfNUHpra+zdBefDCwma2Oijr0bskkum9PnQOnaU/DjztbA+hSFcoHceqgmoThrlx0B6MvTlCSI/FMdRUXgjO1bU0fvQ4nrCZIGszi+kCLRhpim3CpkpvXndJsHHyzoDOL8nCNIqaFytyBk4ILhxr38JbgSiFj2vbob9U/YkCjxUVhKxczXsZzi7PcMoKKsPI+aVcr4t6seKxo0OI8CrUTYMVWg+94Vc124N0gnkwwaD9KN8pckcBIhJhJoJGnhS4haP/ur+VCO0Km75O8+In8CQ=="},{"h":"a38faf9bf1ace18b16478999e971debd2f61ee7cc87f64321edd3a377fedd6f8","i":"WhY9RJLoqe7R4T6Y","c":"qiqMCbPyH++NsDdL6r4qSF7QX2+3lEXISoSnwWdBjLJce1vnW+J9kijMMw0Ml4CCg7olb0pBeH1s8xSrS5Cz2UjWdzKs1/mcAizWyr8GHoFHjOEwNK9nBAxO4bSoDCvwa65y2kPBgpoIjZsmgHijZKzClAYIyo6+W8Yc7vKaiVRgcBrzu8ryz37r8felbgr+fHo02K2Sa4q1RpEqjLX26c1EeJyZqvCHpBjR/Mnz6FSjdR6iWLfIUJILA5Um5DrGCDQsJGS9S8f3ObY8bVYysKZqYI9enbZE+2P6IKFMP80nBK6FZ6xedHc/ff+fUe7RJwkyr8M1OF8XQ9wBH+eGYQ=="},{"h":"ab710dcaa3ab63a45b9d294ec13944e654f51785d5cfc46ee339b23a4aa393d1","i":"fiduI4PRAqA0X6vO","c":"mDcb/7nbS65VW3mtBncQB9QbnYFAtIDyXWYXWZ46ofoVno0RQUwTV141lzJazrDZubDxGCf7g6BHXPVBklCpbSeP6NNzT6zzTzIGVAtbWC8kkz9GTXuqc56hXEF5x74fl53Z/X6NjA/XkHp88QpOPUGzNGxSH7uh/GrgW7rRSBKds6ZkSZXPmJfrBB4GKB3yV+BMFmekJr/eI92WY/BabKKvxyLVvDpoZYN99O5eYUQRGVom0LB6K9RqEAn5DT0EX7HNbgfQaJJbTdpEEKl3TdRj4c89Pf/yHE+YhC1S4J1ioSzcxfGTo4Ykc2eYOykIGJxaHsVy30vCKF22tSAwNg=="},{"h":"a115c099e6d49d36b5b274d521bcdf6086523faa80466b860b10bd178582f9e6","i":"1IxV9aA8ph+lrimT","c":"Q5p99zcT2OqRi2km09uNY2y/Sr0KxOVxUBiq6mK83FXiLc89cms7GjAAWcl0VNDTClVyNjWg9zdizl8VYAvRMXkbZQzwMlz6BKdt39kg0RwUfuryzDgNmdm5h1qMucXJQcZVKnTrWGSJt9lZAEIfnaYj6Ul9RHQI/m+ckGdXqopCDqBX1mNA33zh6zOphohuXBpB3s0HoFCmpyVzqkwL/2+GgGJulqV/RxtbsVIBReAEQ+RCb/uSwZOUF08TcLaORK2ciLOXpU5N9gkyIv4gx6tmkc5/II68B7/4wJTnjkp0dpu4+J/+rvLJ1wxsaFN2lFvDNMzSfNFm9/RRh5cziQ=="},{"h":"b4b85aa512aea8b9f21e6d79cb39af9eb6c1ed000df151fb161ad0ae987f55ee","i":"LGGq/jYxOgiEUhKy","c":"jWkFi1LEQIx49itV3O/Hb5dJ+5QjqujLbZYDpSg3HPyMKDc7SUBVkEQpq1sr4r6+MBBsj7a6pAF/m1W7GCHxu4n5lPgglIIvWSD5GqADUpa0haEmwVKdWtVuoyQiVynoeElObIO5zoaqQ0dihZQL0+Y0fYDeIbJ+Dy9Jl+zsaF8/ufAP2oxpkVLPtz0WM0vsRh3yF78DB6BntRxeRqM2m/A/VjN59vHw6exWxsxww3Mrxv6CCEePmZ7QpdD23Qiltr7Ip8l3uzShrGpQbD9bar3qirU/73RcCNIQZgZVuVMmq5udDe0QZsZcNqEisQqAwbiSgox/uMUFiIZTffFISw=="},{"h":"687172c0f5def7a5899d284cd43f07e9e08f291102aea2f2e48e7540f2bddc27","i":"1L9otIl+bolq2i4A","c":"XocYByiTgTPNebCZh4YFjWpsDDNQ+N4ohPY9nMPkgj3W/N2v/7Y8lnX+wwx5wrZn1Kj4NI6NgqmhLmYAiRaZ0hFJzPQS/Fy1wSohoroTTsioLi4hXrgnUASqwHPSwXkw+wMigaMBB6XLsfSHKJs1v1IkG2o7jYhYkgX/7pcmB3LxNbHop9xsgOO8WkVDBO5hSfWz4JqjF+4lr2+2MMep+FJzr3iZkB01SU0ZzWc/jOTO1xNad3Us+lV7fuzpHdlsmgpaGsKT243nUzrypngL4Qoq7YN8esKZiu5O5Y3DZabzlbMNKK6DTWB/DV8FNioseGqJW5tn1ahiw6Sk0vcWDg=="},{"h":"e7442f436f2c6d668f2d4c461d5c03b2693bb89543911b0a08760cc1756583fa","i":"yvGo/KyuXpOiM4lb","c":"16YKAmsXG5rgBVfwcwqdVC4cFGd/RY5dh6YPp5M10/f3sCgw6/wwNySqBd/0WkP/IH2151Fok5S099o4cYIUmxwNrwV1GNvFJTo+P23P7QiP3sRdhsp0qrpIcjybRnRE00F5uGhIfT5BAzx1GfTqRG/nvtcBYds56cNyGDpyWXWfj8Vcs2lXDmiP+aINru9xROqcNDePa2GDDggV4KBwihnM6J2NiJBQvgkv7WskGfguT0SVx1n+jcjnzTaS7ETQO2BaIjpfohK+BKjtPPzy679VIx88cpMMEhBW1FeEhLuQCKphaODP5eiPJwPatW+y/h9NNPtu9oIsFyUdJleNOQ=="},{"h":"4d324f718bafe4991ddbb8d96e0dce7100c5240c949a3067dfc36c8efb40650a","i":"ZCXzABjwiH2TF01m","c":"A0T+cPzeWLQDb9/otdr3qNTOj7YeN9RY9mEkI/b+h++1b+/Kf4IAJsBqv1OUEIDTLBATG01YJqnoVL57f6uEShdQLEZS1QnYCV1DZsfM6OG3sZnclx5zndbchOXgDWSYWMGChQqJ00yWapqqqqZgES/V5pAcJpRHdzfV0wO6JYtZvRVKmXGaEOPzIscvztcvDL897VJkYb9/j68OG1UdC4Gsm4Oy+SbCTXHj83qyCPUFAVl1b/zg9EVTEmuCuUtAw3+z0okg4e6mpvYilCgNWhE5QhsZ+TbwmS1EYprr7dix07H1mrtO4CrfWyG4lzNEgbjrKsbhbNVC9L8EZfnwfgP/MPXM9eVdEbaYKA=="},{"h":"5a08163573f7568a5272909016878a6dc677e5b3d627f7992f3ec26010f271fd","i":"zBOvtKr6Vo8otzIG","c":"Aqk5tuaz3UxsE4RhkqHRThBlKtx4jBeN41CO+OA/36HksiOtdsEej/PkDltYKoBUch0pZZYtZJjpxpExdXWtJdyHesWmzq2G2wbqxmWTub9/9YIsGlTZaJsffStUCrGq/ewUyPViWt37xZfbUhtpkj3mM800uiZaR5WmUfTAW2W9luMniaAF+sgfXdGnDMLcP8s9DJm2p2aWZNo1MpcSfuXu9BmY1RqwkDmJPCC0AK+4SuYn/5YJZf2Z5Hsbu1DD0Z+vbFjrTgo2FSS5vzQ64Dd4DYHZKHT8t8Zjj10Ed9lF6P0B7USwUhLZosKjSJ+XDZRBiiFBsxka20rISP+sh/bJ8kbpFfYTyFB7nw=="},{"h":"2d04fb2075dfa4d5e5629baa5bf277b23955ffb11d5a6048c3195944629d75e8","i":"gBswhnOAs7xYvXbD","c":"wQr0AIJRepvw4CJ+NwYENUH5zxpuiDAs76c3d+5DmWCy6blt8KzXHyU6E92XH+zaPBPc2YWo2UnBv8j/TZ6tv9V7akyxAT+RHX4SBBHNe3vSfBulMwQyM5erheAW2PDMOhDYkR9R2jhDePfdDZklfsoiNhYHMylcbdR20aJZRKkE5PvDhPEWN1AFfWcezS/GoOkpzP7yIqIisgSO84z+ixbZibGUneRMEZ0mTZGwTXfbBKBlMVeG4KM4mYfuaZ2DeBOOtjhuuL3rYUYPX/+TNXN7ZkYBNqdgxs0CkfE1zTz6nQcwbr7c9+EVfemIN37VrHbSp0DNiG+sVrXMzKKPUePeiw/zMwKcI+/eIA=="},{"h":"2d3bd9b85a3e847d64103ef6dc276ee35f9e16f430c31d9b9ee01bc48a2696e6","i":"4fryvcaepuBrXdBu","c":"2bS8c5yqzOnQqxbv6bbuOGPBOuziwKZT6tpRLaZqIzbFCpxZhwxspnGf4K0Hrz5Sz4uuJeen5/AIl6Td66qHvzvckUJuyNjq4xXyp/bgh8cURF/DfAI1AsYoQePTCXj+7u8TEv/EqE35GVXt2FLqmzw42drfhezQUVfadGbkctnX726EIaH2iKl/Z3RMNEvIkTwcpaL47/7eoCkLTtDYh5FeSDsUpTvC6/qFlV4sDI1ikTKPfCYUC+IM3wYbej1q7iaiyGa8rG0lydgItK9UQrVIxjwwOr5GjYw0inHawR2Tk94cJR1bXmUuGAXSfSv+pqBd9QBo6ifFU0T06VVy/y9oE0BoyiDYnV/iFQ=="},{"h":"ea2b34a8eec5408e48e96177bb38ad998ff59e02202cf61779b9bf32f1ccf73b","i":"oApUmJByliQaIAqr","c":"crf/dkacPJT6Y/HBON9tpH9U5v6yO2+l7LrgVVPMnZUWC7gyH57QK/m79JSqnUNMGqFsU760fS5MfI+6ie9qMRL8kN2QwH4fV9V9tYHO/qAoJ/Y1vRBGvOoBJ4lcv2lg7030Mqk0CgeVE2/ATKBO+yEAb25LxdfU2eW2c4CyFGhDKIThd+z/WRGy/ZDNC9MJlkO9A4jFidHD7FBXN5lSkFVUoudVsCo0Iz6Q90wwiOkxHZnUm8jzYq5qZYe9NIwa+XYVwdvHtD7h7cvyb7DOApMhzranVeFVlfmPC2O5igA7d3Xs77f3LMN9dD0DtS34D4SRKWcQkyb9IvlLflLaJI437MeCIvPaO7781x47IQ9/t7w//g=="},{"h":"2e5458d7962ddf4cb38ad9c11c7e24ca48a747ce3ae2188158ffd26a00ca7750","i":"EJEte7+C+IAAKsTW","c":"s9Ka8H8mKICBUxQtYtzz5bM4bVMLVGthHvFZudJGkH+hrYP2rhywwRDCCA5zL/Roc/bxZu2UXVNeZPQLpW4eS6PCQiCIs6g7w+purSkZeBJrkZIRRJt+DYrDETSRoCB3SrNWCnCQirP+rdnRTDgHp43aBNjtxeSa74nF6eU9/F1JJP3N+UprU/RwY4NDdhkDGre+4Y6AznhC0qnYtanGhoaNhoSz8ELB9emN0Mnr5FY7kMWKK+mc0phLFMn2AvK/fBjtlAhO3PRSProjsdW9VaHLUFXk/N1H3NNcfBUtHF/ohnCawng33Hn2lDxBnUbvqmjuiJ9xOI0G/NPdsfDUs7tz1VqCfue9znPphsuW9GPngny68w=="},{"h":"b8f3675490fe2ca9f60b56a50179965f69a58306944ee1aca65e186372dee3d3","i":"JAzriLG0E7sK+IZv","c":"ce7+56cyo5MjprPA2l9MEYgKYWCDpp0SFtkvaMsU8+RgdP3KhgbQqxTFZjdeXcdjde79wuciNJ/MJySDUGitF76dsQsb+7wzD1aVLN0suQwu1lWYE3YIARHixe7j7jHQNK9j5gHtyTjSiCLj53550z9SJ/hHQNu5dw2VqK3qv/KZ1vIMeNlL2rEecvHBKPRSEGY3kh6Bh338PzcYMPIWFwCT33kVPViFpsSnVRGxv4541YfTWzbYeQcIZrHlC1bOlxpab/x6LlT2NagUw/c/S31AHy9DGEqYJVPkM2Lskx0AqwXZ2M9Kpg3821IcNlhHONDXpBNqWf3jO/R+/1Q9rAN52PGSDfr/ZiZfmO8V7SNkjecEfQ=="},{"h":"12a4140060f05c30aaa374a9dc3d40677d752023b7acc6f5e854b32894931b34","i":"h5k9DtQZvXM5s455","c":"yHQJBuEtUZzSGH6mugiBA26DKaZ5uYf20u0IUJcNAOrGObH31HZDgLyaqGXhb8jEqoUuS/sLjKZWItKouNs1aC+phyoohilzm4GeUZlaFRs61t22EtefXZiIEJmcvb8xD0XYo45HHB9hwMPbs5X/3DaJBBuxGr+q2BpPDKu9nbArBXDu2kjS6ZHNjv8rJIk6za/a/Pi5O6K16QV1pOGIOk+dzo8Q+UOOQRamfRZp2PiI+lOjFkycUZAS2lO+IL20MhttFtaC5pzOgjN4wdQs/fLAi79276M1fzkSokDGZttg6m5jhcOrHJ2jCRnW4sUAee51/eDV7LEocdP2AEPn4Cet6dD6/t60kqia/MEv/umRa/jECA=="},{"h":"283d012374e1ccdae7f6bf485e0017e8c7a238228656ca6c3c9a6e02697087e9","i":"4QW0mEvMcRqc099m","c":"mVVkf2+NBEzF45XSw5lEUPikENO2QlYoumT+ojWKgTy5Ci1eUZOM6qqiCwCjTKjaAy5yXWQYsojtmiCNgzBCnS36ySBc+Qj6b+/p6zJ47lP/mPpvUvcR+aoe4LqhXveGLhf6lVWjwm0hgv/hhTsixbe5g0A6RWjHlyN0JWTK2ZQvI6fn4GOCGlQjxjHOIkRiAkwE1MSF510sc/zLEXFghM1r6XmX1ous+kmHPu66PiDFB2d0vgm9Nqd1PlxDHlzvvwuK0TS8dd+iL1831KKAvp6Rgcll0N7urZhycBhphOn/l2i6S44lzmyVF2xlePygQNiGymlcR1pjjAagj+KjXQgO"},{"h":"8e17bd5a02e8d4c29c5c28674a1c03ff0dbf470cad3b66e7932fa3de0d2c10b6","i":"A80ZFtF5OyOhl/V4","c":"crpRuJlE4PZ+8FWuuRgCekDs3EtCskyoHimKYABgBpy17LojIFWcbFqhtJi3IeCZlFR5i9bsCQd10+94jQeUNWVbTd4+dvLQGzvUMCZq1wUPd/V98J4ykI3db8wLzce2L0TaIgn8+XqDRAfbV3TR3fp1rHUyTpExwH6886jTbz3hzmoJJFKlPibaE+5wW4F4HzkVhMeKBUFmFxtanSuOnadLcje/3wpONJ1o3KO+SgyLqi15NBGB4RopVW6zzN1YlMKN8F7geTXBfmuLsjSbg7G2uoiadHwPNsQ5fEXvRub0a0QYuP4QnM4/BA1YGKU/YsZUXRf4zjMUOj4YULPf5lFU"},{"h":"2c751fd7ec582f492633612cb1ddc19d55dd4f6e64439591a6d8c68e21ccffc2","i":"IgppcjKX2cTzuM35","c":"zUcQTNLhKkHsmU2X3ogTZLGnepJ0de2YAberrnLnhmXbY0fdGlFiB+MyaSSHRp9tDTZLUctfXwz6D+f4+bKdSDUUfvgQnF8GxDoqAdmmxMLpovXdZme22lkYV3YOEhyGRxEAqyvcV9ln47y5CZ6oNvCakrdVuJd74jxZgEY32sEAnPKy2IQV5cplsiYcKwmrKqbtZpgB3TMFgLVCRkjmG6ZhcA6FRVvHdYhmVnCaEE7av09DxMcA8RgCEVabJ/JMe7p3vuirE0H9jdcubJAETg0VLdy6JWBP9jLIxJLJ99lKbQYI3MEqp8HLdC0BGj+D5vzh/8RqIPi/eLmFjyT9K3x8"},{"h":"c60e438bc7531fa2efdc7efbd354e9664244665ffe979a57946accce03c5ab39","i":"YkCTSmpcN/2oG5+h","c":"pLTswByHERi5E7jZIT7qfnY5egTwqyTrUu9yc1TTA/NJqFaZpfHFZaxHm31yjmbD7bW15zZ3V/YDfe37fyUtCtGEfPTEHwPizadV4B0FDYdobWWOQ1BVyQYGgPijJOfQD+XJ6YFB58AYjSqyQLxjockHGXvtv/mHzfbtx7VyPpHVZWzU1JVowOUWYMxcBoUzILOWNJGMR/akHWIXoHL5OYVHCzORVoVBf5PgpmbVJhkI375a6MhgEF2luHeeM/2rm+eBztpvLg/CzWeoKghPWGCo4pIXmnjD7Vb8FsfUdLVCngZvWLh7pkGAMSZkNywBoFqRVuFpT3Fs3LWd/TjENhFZ"},{"h":"c685b46ab8f6f1651d91ebc403fa7e859fda44ea0a0c726260d6aa4bac5b6e8b","i":"QOIepSO8lxd6wA42","c":"TmfGd6a1xzI0//a//xs/WcAmAjB8dhg6cDNXs4kVPDcmuLxuU/XB+PFMvvTk1b2Y958HT9xomNlfstHTuRC2tmqmAZcShyFeY1E+QEYrKt+1B8O11mhIcrqZvnVSkDwti+C+huGIbHTfVAdFwbj7waSmlMLW5s90uOkGiaRAhA+WrGuaQTUyMd970QQO4daZ8p9UoiAFJAtnl3EL9nCiqmMqEzuhEJSQU2/SeGq1WNVRQyb720yuXCeSwrBGSdWcqa9l7zQSvFTyjfmihqZ46OYG9iBesy/JAR78JqSFvJ7BrFeAObrx8WSWRcN79Tb2QVjzkI/cnWMGfluzXneNefAERmdPNCL4nJKmAMb6Oo3PWDOdm8XdSBMsNV0cMY/psWKdS/NQtQGYdG3ZeZinGQ=="},{"h":"996984a3a06a1d62046abfa502dd94ce43c16639997a868da35709065186f289","i":"Xa6b24AJKil885Xq","c":"xIGiwIhe0l6q2NdSeXLDyIWjkzVETRmofBP44Z9X/IuHwG8Z6kRcixx6mLsQ71fg1eItkT4cNyo5WluN4THvT2XQ5tORxC/KrXPlRVAcQw6yVzlCma6Ep7T4I566zIYVZNsQRWlGfpVuHV2qTwqDaW3dk0QmNK5CprHMCooLn32YvSxLFeuYcsFrBujCh1ZReuKPWvW54o4QP54vxV0jcuc2IsKVxGcZlzhLs8ots9W6HgxxmUVr6t25GnsCY1KNDaRSlT1N0NHGYtNLcKIaVjpwyBLdNb4OeoqQIuRmZWMCU/3enbb2fqxwmKInKrP7il4gImyEneJFNlfzv7OGF8G8lNQFXHEp3sBVfQuez5rzG1Q3f5lWRQw1PRh1PkyjGwXJm+bc/6cqdo+Jgb+uyw=="},{"h":"76d7b8c9faeed4179b40ec0a168150c07aae32f546075545d4df5c4d3b97f026","i":"DtjYGevOfwjTj86F","c":"C5iHu1XuUyOkPVFOVtFUnpyhwTZJaIUG8wnw7p8KDrsGs1l/Zts0JGTYf9B2oQL2kpfu8NCR5PwPCfocGBNOWFXxSDI/yFB0g3ZP6KnU4t17WEqkuiW99srrbqEtBvSpZz5fb5QUkx+hAkUgnAA9IMXJJu/ALjm3HxzUS6t4spdoLyzaN3ro8Gq6Q1G4h0NJmDpeBz7aLTnDA5phJoSfrUL/6E3yWdzbDsJlL3Xb4V2aReNmcbLZbjtRa319ckgodfDwVpwKtiu3RoxPZtVtxsuAx+ZIqgWRZ8ARaeZSmB1O6/N2LHWo5P8DzmnpmBtUDOnujprA/yRja/EIrgtjlUeLpqyio40IbsZ0o5vFTn9SX6PktTKVb6eQCg9SWD1HLFrnbsJ/c/3NIzvJqGu0/Q=="},{"h":"2bd64554d440f2627221a3d8dedc2a3ead8f0b44c08613fff99b13e4de7361d4","i":"xH5uFm99xg95J18e","c":"DLQH7/XzvNEw2CdWhHuJizfmPT4c7+jAEjHd4WNKRHD8JIHS3nQrgrPrRYF4WxIE9YLBjy2nilibhN93aurbxuKATUiN2xswurWWPDcd8t9dya0bLK4MWkU74Hbi3cFo+LT+Km91C9tGSG/KiM5mjAmNWs5LTu+mrTxWLmhDpDTHFNY1pWulPSZ3iTJTx9osxXFFtEtB08qSoOxfqn8VInGPv2gmo5Wew7nTmwyr9KSyJzwxUwLADGK8j13Y9grtMSUcQVm3fiuL+eFQ2XT7ULTZWOqqGFfci3mKHLUltbOmR1faCesnucFvXg80LGO57az2alimnWSp+9Mj4Oi9UoIz007oq3XTDKdY6xGvJEZoIhf8Kz2VPBqZI5rxxMaCtuCZFeghd/jDCjFYFmkm9w=="}],"t":{"h":"8300dc2733c09a9c153f014259638289ee5aeb0da0cf73d93c6a660085dcc41f","i":"ke0Jj4cJgKR3rukl","c":"SATGT1a6YvbmEv00D6d/DIAGhrHsqArtDxteYwl06qCrThjqRiDC45JOc/fvsr8HKqDPARZSeu9gvaJn025KhNBBrIb5NfleLs7QE66DLOQLRAlZS6sN0mzE+5JaCTVAy8NB6BUfgkRaJKlJxEbui+uIOTHtNlTB+A=="},"s":[{"h":"8d9279b105c9c605cbd107dbc6d96831efad3ed16c5f1e8785db64fee7197ec6","i":"qgI2Ug57jP/XPZzf","c":"y5mZriTfepL3BLGnlAC6CUwNH5yORo694RWhI8EO/1vQy8dI4keD435FR+VturNLe0ZxtQ=="},{"h":"161244351a7696b02b9310255552bcd6e36a245d8e90107145065be94bf16c16","i":"oJDErsmo+pJy1Y1a","c":"VCw95kl1Cqp233V6oA4CTHgxswsUIkce6gvrxUowdCZ8i7HUZ+y720SQh07Gn76TRI3YZw=="},{"h":"475c4d44c07bf9234f408b3aba8439b80b971b92f0b2ff040656c88e21d378d3","i":"IkYRgWxinDBEe1+E","c":"guljT6tl/36eKiz51tIwaaTpCpYbDuRBImBf0G4Tlf+RTcWwjoUnR8+1HxjUSK6Le6TRiw=="}],"f":{"h":"9f2ad1dc9813550a82061fbce35c7097ba6639d41bace876b02fda26ad2793f6","i":"COag8ANOvvXuMoY1","c":"4cVSgGVoUqWPYFvJYT4twxjK3kRvpUSRyOZ/DAxwTyz/b9u20PgTR4Wjzs8kyxlzhKyoP5SySi5yUu5yeC7a7X95hi/mtBfhlAu3p6y0h7Q1mQbbKIO0EgzS+sLMG+ebI0OuNxUHD1LPWjOC8Q6jyNBZ7XY8lYMjNUJRBFwppR7lXDBoTNZCFTbxPmT5wA=="}};
+const SIN_TOTAL = OBF.s.length;
+
+const FORTUNE_CATEGORIES = {
+  love: [
+    "恋愛運 \u2605\u2605\u2605\u2605\u2606\n\n気になる人との距離が、少しだけ近づく日。\n返事を急がず、相手の言葉のすきまを読むと吉。",
+    "恋愛運 \u2605\u2605\u2605\u2606\u2606\n\n今日は勘違いが起きやすい星回り。\n短い言葉ほど、やさしく補足すると運気が上がります。",
+    "恋愛運 \u2605\u2605\u2605\u2605\u2605\n\n胸の奥にしまった本音が、ふと表に出る暗示。\n素直な一言が、思ったより強い魔法になるでしょう。",
+    "恋愛運 \u2605\u2605\u2606\u2606\u2606\n\n相手の反応を深読みしすぎないこと。\n今日は追うより、少し待つ姿勢が星に好まれます。",
+    "恋愛運 \u2605\u2605\u2605\u2605\u2606\n\nラッキーアイテムは甘い飲み物。\n何気ない雑談の中に、次の約束の種が隠れています。",
+    "恋愛運 \u2605\u2605\u2605\u2606\u2606\n\n昔の会話を思い出すと、新しいヒントが見つかる日。\n同じ場所、同じ言葉に注意してみて。",
+    "恋愛運 \u2605\u2605\u2605\u2605\u2606\n\nあなたを見ている星が、今日は少し多いようです。\n視線を感じたら、笑って返すのが吉。"
+  ],
+  work: [
+    "仕事運 \u2605\u2605\u2605\u2605\u2606\n\n小さな確認が大きなミスを防ぐ日。\n送信前、提出前、出発前にもう一度だけ見直して。",
+    "仕事運 \u2605\u2605\u2605\u2606\u2606\n\n周囲のペースに巻き込まれやすい星回り。\n今日は急ぎの顔をした用事ほど、順番をつけると吉。",
+    "仕事運 \u2605\u2605\u2605\u2605\u2605\n\n積み重ねてきたことが誰かの目に留まりそう。\n地味な作業ほど、きちんと整えておくと運が開きます。",
+    "仕事運 \u2605\u2605\u2605\u2605\u2606\n\n会話の中に突破口あり。\n雑談のつもりで聞いた話が、あとで役に立つでしょう。",
+    "仕事運 \u2605\u2605\u2606\u2606\u2606\n\n無理に完璧を狙うと星が曇ります。\n今日は八割の完成度で一度見せるのが吉。",
+    "仕事運 \u2605\u2605\u2605\u2606\u2606\n\n机の上、フォルダの中、カバンの底。\n探していた答えは、意外と近くに置き忘れています。",
+    "仕事運 \u2605\u2605\u2605\u2605\u2606\n\n頼られる運が出ています。\nただし全部引き受けるより、ひとつだけ助けるほうが良い結果に。"
+  ],
+  money: [
+    "金運 \u2605\u2605\u2605\u2606\u2606\n\n衝動買い注意報。\n欲しいものを一度メモに書くと、本当に必要なものだけが残ります。",
+    "金運 \u2605\u2605\u2605\u2605\u2606\n\n小さな得が重なる日。\nポイント、割引、忘れていたクーポンを確認すると吉。",
+    "金運 \u2605\u2605\u2605\u2606\u2606\n\nお金の話は軽く見えても重い星をまといます。\n約束は曖昧にせず、数字で残して。",
+    "金運 \u2605\u2605\u2605\u2605\u2605\n\n臨時収入より、無駄な出費が消える運勢。\n使わなかったお金が、未来のあなたを助けます。",
+    "金運 \u2605\u2605\u2606\u2606\u2606\n\n派手な誘惑に注意。\n光って見えるものほど、今日は少し距離を置いて正解。",
+    "金運 \u2605\u2605\u2605\u2605\u2606\n\n誰かへの小さな差し入れが巡り巡って返ってきます。\n見返りを期待しないほど、星はよく働きます。",
+    "金運 \u2605\u2605\u2605\u2606\u2606\n\n財布や決済アプリの中を整えると運気回復。\n残高より先に、流れを見て。"
+  ],
+  relation: [
+    "人間関係運 \u2605\u2605\u2605\u2605\u2606\n\n普段話さない人との一言が、空気をやわらかくします。\n挨拶に少しだけ言葉を足すと吉。",
+    "人間関係運 \u2605\u2605\u2605\u2606\u2606\n\n相手の機嫌を全部背負わないこと。\n境界線を引くほど、関係は長持ちします。",
+    "人間関係運 \u2605\u2605\u2605\u2605\u2605\n\n今日は聞き役に星の加護があります。\nうなずきの回数だけ、信頼が積み上がるでしょう。",
+    "人間関係運 \u2605\u2605\u2606\u2606\u2606\n\n噂話には半歩だけ距離を。\n面白い話ほど、あとで尾を引く暗示があります。",
+    "人間関係運 \u2605\u2605\u2605\u2605\u2606\n\n昔の仲間、いつもの仲間、近くにいる誰か。\n何気ない合図を見逃さないで。",
+    "人間関係運 \u2605\u2605\u2605\u2606\u2606\n\n気まずさは、短い確認でほどけます。\n長い説明より「さっきの大丈夫？」が効く日。",
+    "人間関係運 \u2605\u2605\u2605\u2605\u2606\n\n誰かの冗談の中に、本当のお願いが混ざっています。\n笑ったあとに、もう一度だけ思い返して。"
+  ],
+  health: [
+    "健康運 \u2605\u2605\u2605\u2606\u2606\n\n肩と目に疲れが出やすい日。\n画面から目を離して、遠くの光を三回見てください。",
+    "健康運 \u2605\u2605\u2605\u2605\u2606\n\n水分を少し多めに取ると星の巡りが整います。\n甘いものは、午後に少しだけが吉。",
+    "健康運 \u2605\u2605\u2606\u2606\u2606\n\n眠気を気合いで押し切ると運気が濁ります。\n五分だけでも休むほうが結果的に早いでしょう。",
+    "健康運 \u2605\u2605\u2605\u2605\u2606\n\n歩くことで考えがまとまる星回り。\n近い場所でも、少し遠回りすると良い知らせあり。",
+    "健康運 \u2605\u2605\u2605\u2606\u2606\n\n胃腸が予定より正直になりそう。\n今日は勢いより、やさしいものを選ぶと吉。",
+    "健康運 \u2605\u2605\u2605\u2605\u2605\n\n笑うことで運気が上向きます。\nくだらない話ほど、今日は体に効くお守りです。",
+    "健康運 \u2605\u2605\u2605\u2606\u2606\n\n首元を冷やさないで。\n小さな違和感を早めに拾うと、夜の運が安定します。"
+  ],
+  general: [
+    "総合運 \u2605\u2605\u2605\u2605\u2606\n\n今日のラッキーカラーは紫。\n身の回りに紫のものを置くと、直感が少しだけ鋭くなります。",
+    "総合運 \u2605\u2605\u2605\u2605\u2605\n\n星の流れがあなたに微笑んでいます。\n今日始めたことは長く続く予感。迷わず一歩を。",
+    "総合運 \u2605\u2605\u2605\u2606\u2606\n\n焦りは禁物。\n一度立ち止まって深呼吸すると、次の道が見えてきます。",
+    "総合運 \u2605\u2605\u2605\u2605\u2606\n\nラッキーナンバーは6。\n六つ並んだもの、六人の会話、六番目の合図に注目して。",
+    "総合運 \u2605\u2605\u2605\u2606\u2606\n\n予定外の寄り道に小さな幸運あり。\nただし帰る場所だけは忘れないように。",
+    "総合運 \u2605\u2605\u2605\u2605\u2606\n\n今日は紙に書くことで運が定着します。\n頭の中だけに置いた言葉は、星が拾いにくいようです。",
+    "総合運 \u2605\u2605\u2605\u2605\u2605\n\n偶然が重なりやすい日。\n同じ言葉を二度見たら、それは星からの軽い通知です。",
+    "総合運 \u2605\u2605\u2605\u2606\u2606\n\n古いものに新しい意味が宿ります。\n懐かしい画面、古い文字、妙な装飾を見かけたら吉。"
+  ],
+  omen: [
+    "……不思議ね。\n\nあなたの星ではなく、近くにいる誰かの星が強く瞬いています。",
+    "星盤の端に、読めない記号が出ています。\n\n普通の占いでは扱わない種類の合図かもしれません。",
+    "今日の運勢を出そうとしたのに、別の名前が割り込んできました。\n\n……気にしないで。たぶん、よくあることです。",
+    "あなたの周囲に、六つの小さな光が見えます。\n\n全部そろうと、ひとつの言葉になるでしょう。",
+    "星が一瞬だけ、紫ではなく緑に光りました。\n\n画面の向こう側で、何かが待っているようです。",
+    "手元に紙があるなら、大切にして。\n\n今日の星は、画面より紙に強く反応しています。",
+    "同じ言葉を何度も見たら、それは偶然ではありません。\n\n星は、しつこいくらいがちょうどいいのです。"
+  ]
+};
+
+const FORTUNE_RULES = [
+  { key: "love", words: ["恋", "好き", "彼", "彼女", "恋愛", "結婚", "告白", "デート", "愛"] },
+  { key: "work", words: ["仕事", "会社", "転職", "上司", "同僚", "会議", "残業", "職場", "働"] },
+  { key: "money", words: ["金", "お金", "給料", "財布", "宝くじ", "買", "支払", "貯金", "予算"] },
+  { key: "relation", words: ["友", "友達", "人間関係", "家族", "仲間", "気まず", "嫌", "LINE", "連絡"] },
+  { key: "health", words: ["疲", "眠", "体調", "健康", "ストレス", "寝", "肩", "目", "お腹", "胃"] },
+];
+
+const OMINOUS_RATE = 0.11;
+const MAX_CORRUPTION_LEVEL = 5;
+const STORAGE_KEY = "hoshiyomiArgStateV2";
+const CORRUPT_COUNTERS = ["072931", "072?31", "07?9:1", "0?▒9:1", "?7▒9█1", "██?▒:1"];
+const CORRUPT_HEADER_TEXTS = [
+  { title: "✦ 星詠みの館 ✦", subtitle: "あなたの運命を紐解きます", badge: "無料鑑定中", notice: "名前・悩み・直感で浮かんだ言葉を入力できます" },
+  { title: "✦ 星詠みの館 ✦", subtitle: "あなたの運命を紐解きま?", badge: "無料鑑定中", notice: "名前・悩み・直感で浮かんだ言葉を入力できます" },
+  { title: "✦ 星詠みの舘縺 ✦", subtitle: "あなたの運命を紐解きま? 記録中...", badge: "無料鑑定?中", notice: "名前・悩み・直感で浮かんだ言葉を入力できま▒" },
+  { title: "✦ 星詠み█舘縺? ✦", subtitle: "運命を照合していま▒ / 星盤ログ混入", badge: "無?鑑定█", notice: "名前・悩み・直感・周辺記録を入力できま縺" },
+  { title: "✦ 星詠█の舘縺?譁 ✦", subtitle: "運命ではありません / 記録を照合中▒▒", badge: "無█鑑定", notice: "名前・悩み・直感・六つの光を入力できます" },
+  { title: "✦ █詠█舘縺?譁ｰ ✦", subtitle: "ERROR: 星盤ではありません / 入力者記録を照合中", badge: "無█鑑█", notice: "名前・悩み・直感・六つの光・紙の記録を入力できます" }
+];
+const MOJIBAKE_MARKS = ["縺", "螟", "譁", "�", "▒", "█"];
+const CORRUPT_TAILS = [
+  "",
+  "\n\n※ 星盤ログ: 縺? 受信...",
+  "\n\n※ 星盤ログ: 縺? 記録中... 螟夜? 譁ｰ...",
+  "\n\nSYSTEM: 占術結果に未定義の揺らぎを検出 / 縺薙? 譁ｰ... █",
+  "\n\nSYSTEM: 星盤外レコード混入 / 繧ｯ繝ｭ譁ｰ... █▒縺█",
+  "\n\nERROR: 星ではありません。別の記録が応答しています。 █▒縺█ 螟夜譁ｰ譁ｰ"
+];
+
+const GREETING = "ようこそ、星詠みの館へ。\n\nあなたの気になることを何でも話してみて。\n星の導きをお伝えするわ。\n\n恋愛、仕事、人間関係…なんでもどうぞ。";
+
+// ===== State =====
+let mode = "fortune";
+let answeredSins = new Set();   // stores hashes
+let termFails = 0;
+let done = false;
+let busy = false;
+let lastFortune = "";
+let fortuneInputCount = 0;
+let corruptionLevel = 0;
+
+// ===== Runtime lookup maps =====
+let nameMap = new Map();
+let sinMap = new Map();
+
+const chat  = document.getElementById("chat");
+const inp   = document.getElementById("userInput");
+const sendBtn = document.querySelector("#input-area button");
+const visitorCounter = document.getElementById("visitorCounter");
+const fortuneTitle = document.getElementById("fortuneTitle");
+const fortuneSubtitle = document.getElementById("fortuneSubtitle");
+const noticeBadge = document.getElementById("noticeBadge");
+const noticeLine = document.getElementById("noticeLine");
+
+// ===== Utility =====
+const LOOKUP_PREFIX = "hoshiyomi-arg-v2|lookup|";
+const KEY_PREFIX = "hoshiyomi-arg-v2|key|";
+const enc = new TextEncoder();
+const dec = new TextDecoder();
+function getCryptoSubtle() {
+  return globalThis.crypto && globalThis.crypto.subtle ? globalThis.crypto.subtle : null;
+}
+function canUseCrypto() {
+  const subtle = getCryptoSubtle();
+  return !!(
+    subtle &&
+    typeof subtle.digest === "function" &&
+    typeof subtle.importKey === "function" &&
+    typeof subtle.decrypt === "function"
+  );
+}
+function stopForCryptoUnavailable() {
+  addBot("このページは安全なHTTPS環境で開いてください。暗号化された星図を復号できません。");
+  inp.disabled = true;
+  sendBtn.disabled = true;
+}
+async function sha256(t) {
+  const subtle = getCryptoSubtle();
+  if (!subtle) throw new Error("WebCrypto unavailable");
+  const buf = await subtle.digest("SHA-256", enc.encode(t));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,"0")).join("");
+}
+async function lookupHash(normed, purpose) { return sha256(LOOKUP_PREFIX + purpose + "|" + normed); }
+async function deriveDecryptKey(normed, purpose) {
+  const subtle = getCryptoSubtle();
+  if (!subtle) throw new Error("WebCrypto unavailable");
+  const raw = await subtle.digest("SHA-256", enc.encode(KEY_PREFIX + purpose + "|" + normed));
+  return subtle.importKey("raw", raw, "AES-GCM", false, ["decrypt"]);
+}
+function b64ToBytes(s) {
+  const bin = atob(s);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+async function decryptRecord(record, normed, purpose) {
+  try {
+    const key = await deriveDecryptKey(normed, purpose);
+    const subtle = getCryptoSubtle();
+    if (!subtle) return null;
+    const plain = await subtle.decrypt({ name:"AES-GCM", iv:b64ToBytes(record.i) }, key, b64ToBytes(record.c));
+    return dec.decode(plain);
+  } catch (_) {
+    return null;
+  }
+}
+async function decryptJson(record, normed, purpose) {
+  const raw = await decryptRecord(record, normed, purpose);
+  if (!raw) return null;
+  try { return JSON.parse(raw); } catch (_) { return null; }
+}
+function escHtml(s) { return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+function normText(s) { return s.normalize("NFKC").trim(); }
+function normKey(s) { return normText(s).toUpperCase().replace(/\s+/g,""); }
+function normName(s) {
+  return normText(s)
+    .replace(/\s+/g, "")
+    .replace(/(?:さん|サン)$/, "");
+}
+function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+function detectFortuneCategory(input) {
+  const text = normText(input).toLowerCase();
+  for (const rule of FORTUNE_RULES) {
+    if (rule.words.some(w => text.includes(w.toLowerCase()))) return rule.key;
+  }
+  return "general";
+}
+function pickFromPool(pool) {
+  if (pool.length <= 1) return pool[0] || "";
+  let selected = pool[Math.floor(Math.random() * pool.length)];
+  for (let i = 0; i < 6 && selected === lastFortune; i++) {
+    selected = pool[Math.floor(Math.random() * pool.length)];
+  }
+  lastFortune = selected;
+  return selected;
+}
+function pickFortune(input) {
+  const category = detectFortuneCategory(input);
+  const useOmen = Math.random() < OMINOUS_RATE;
+  const pool = useOmen ? FORTUNE_CATEGORIES.omen : FORTUNE_CATEGORIES[category];
+  return pickFromPool(pool || FORTUNE_CATEGORIES.general);
+}
+function setCorruptionLevel(level) {
+  corruptionLevel = Math.max(0, Math.min(MAX_CORRUPTION_LEVEL, level));
+  for (let i = 1; i <= MAX_CORRUPTION_LEVEL; i++) {
+    document.body.classList.remove("corrupt-" + i);
+  }
+  if (corruptionLevel > 0) document.body.classList.add("corrupt-" + corruptionLevel);
+  if (visitorCounter) visitorCounter.textContent = CORRUPT_COUNTERS[corruptionLevel] || CORRUPT_COUNTERS[0];
+  const headerText = CORRUPT_HEADER_TEXTS[corruptionLevel] || CORRUPT_HEADER_TEXTS[0];
+  if (fortuneTitle) fortuneTitle.textContent = headerText.title;
+  if (fortuneSubtitle) fortuneSubtitle.textContent = headerText.subtitle;
+  if (noticeBadge) noticeBadge.textContent = headerText.badge;
+  if (noticeLine) noticeLine.textContent = headerText.notice;
+}
+function advanceFortuneCorruption() {
+  if (mode !== "fortune") return;
+  fortuneInputCount++;
+  setCorruptionLevel(Math.min(MAX_CORRUPTION_LEVEL, fortuneInputCount));
+}
+function injectMojibake(text, amount) {
+  if (amount <= 0) return text;
+  const chars = Array.from(text);
+  const step = Math.max(7, Math.floor(chars.length / (amount + 1)));
+  let inserted = 0;
+  for (let i = step; i < chars.length && inserted < amount; i += step) {
+    if (chars[i] && chars[i] !== "\n" && chars[i] !== " ") {
+      chars[i] += MOJIBAKE_MARKS[(i + inserted) % MOJIBAKE_MARKS.length];
+      inserted++;
+    }
+  }
+  return chars.join("");
+}
+function corruptFortuneText(text) {
+  if (corruptionLevel < 2) return text;
+  const amount = corruptionLevel === 2 ? 3 : corruptionLevel === 3 ? 6 : corruptionLevel === 4 ? 10 : 16;
+  return injectMojibake(text, amount) + (CORRUPT_TAILS[corruptionLevel] || "");
+}
+function safeStorage(action) {
+  try { return action(localStorage); } catch (_) { return null; }
+}
+function applyModeShell(nextMode) {
+  mode = nextMode;
+  if (mode === "terminal") {
+    document.body.className = "terminal-mode";
+    document.title = "\u2593\u2593\u2593 UNKNOWN TERMINAL \u2593\u2593\u2593";
+    if (fortuneTitle) fortuneTitle.textContent = "\u2593\u2593\u2593 UNKNOWN TERMINAL \u2593\u2593\u2593";
+    if (fortuneSubtitle) fortuneSubtitle.textContent = "SECURE CONNECTION ESTABLISHED";
+    inp.placeholder = done ? "RESETで初期化できます" : "コマンドを入力...";
+    sendBtn.textContent = "実行";
+    return;
+  }
+  document.body.className = "fortune-mode";
+  document.title = "✦ 星詠みの館 ✦";
+  inp.placeholder = "なんでも聞いてみて...";
+  sendBtn.textContent = "占う";
+  setCorruptionLevel(corruptionLevel);
+}
+function saveState() {
+  const state = {
+    mode,
+    chatHtml: chat.innerHTML,
+    answeredSins: Array.from(answeredSins),
+    termFails,
+    done,
+    lastFortune,
+    fortuneInputCount,
+    corruptionLevel
+  };
+  safeStorage(storage => storage.setItem(STORAGE_KEY, JSON.stringify(state)));
+}
+function restoreState() {
+  const raw = safeStorage(storage => storage.getItem(STORAGE_KEY));
+  if (!raw) return false;
+  try {
+    const state = JSON.parse(raw);
+    answeredSins = new Set(Array.isArray(state.answeredSins) ? state.answeredSins : []);
+    termFails = Number.isFinite(state.termFails) ? state.termFails : 0;
+    done = Boolean(state.done);
+    lastFortune = typeof state.lastFortune === "string" ? state.lastFortune : "";
+    fortuneInputCount = Number.isFinite(state.fortuneInputCount) ? state.fortuneInputCount : 0;
+    corruptionLevel = Number.isFinite(state.corruptionLevel) ? state.corruptionLevel : 0;
+    chat.innerHTML = typeof state.chatHtml === "string" ? state.chatHtml : "";
+    applyModeShell(state.mode === "terminal" ? "terminal" : "fortune");
+    inp.disabled = false;
+    sendBtn.disabled = false;
+    if (done) inp.placeholder = "RESETで初期化できます";
+    chat.scrollTop = chat.scrollHeight;
+    return true;
+  } catch (_) {
+    safeStorage(storage => storage.removeItem(STORAGE_KEY));
+    return false;
+  }
+}
+function resetAll() {
+  safeStorage(storage => storage.removeItem(STORAGE_KEY));
+  mode = "fortune";
+  answeredSins = new Set();
+  termFails = 0;
+  done = false;
+  busy = false;
+  lastFortune = "";
+  fortuneInputCount = 0;
+  corruptionLevel = 0;
+  chat.innerHTML = "";
+  applyModeShell("fortune");
+  setCorruptionLevel(0);
+  inp.value = "";
+  inp.disabled = false;
+  sendBtn.disabled = false;
+  addBot(GREETING);
+  saveState();
+  inp.focus();
+}
+
+// ===== UI =====
+function isProtectedBotMessage(t) {
+  return t.includes("key-fragment") || t.includes("HINT:") || t.includes("cmd-hl") || t.includes("sin-count");
+}
+function addMsg(t, cls) {
+  const d = document.createElement("div");
+  d.className = "msg " + cls;
+  if (cls === "bot" && isProtectedBotMessage(t)) d.classList.add("protected-msg");
+  d.innerHTML = t;
+  chat.appendChild(d);
+  chat.scrollTop = chat.scrollHeight;
+  saveState();
+}
+function addBot(t) { addMsg(t, "bot"); }
+function addUser(t) { addMsg(escHtml(t), "user"); }
+function showTyping() {
+  const d = document.createElement("div");
+  d.className = "msg bot typing-dots"; d.id = "typing"; d.textContent = "";
+  chat.appendChild(d); chat.scrollTop = chat.scrollHeight;
+}
+function removeTyping() { const t = document.getElementById("typing"); if (t) t.remove(); }
+
+// ===== Init =====
+async function init() {
+  if (!canUseCrypto()) {
+    stopForCryptoUnavailable();
+    return;
+  }
+  for (const rec of OBF.n) nameMap.set(rec.h, rec);
+  for (const rec of OBF.s) sinMap.set(rec.h, rec);
+  if (restoreState()) return;
+  await delay(600);
+  addBot(GREETING);
+}
+
+// ===== Glitch Transition =====
+async function glitch() {
+  const ov = document.getElementById("glitch");
+  const gt = document.getElementById("glitch-text");
+  ov.classList.add("active");
+  const lines = ["ERROR: ANOMALY DETECTED","星座データベースに不正アクセス...","認証プロトコル書き換え中...","SYSTEM OVERRIDE \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588","新しい接続を確立しています...","TERMINAL ACCESS GRANTED"];
+  for (let i = 0; i < lines.length; i++) { gt.textContent = lines.slice(0,i+1).join("\n"); await delay(500+Math.random()*400); }
+  await delay(800);
+  applyModeShell("terminal");
+  chat.innerHTML = "";
+  saveState();
+  await delay(400);
+  ov.classList.remove("active");
+  await delay(300);
+  addBot("接続確立。\n\nこのターミナルは認証プロトコルにより保護されています。\n認証キーワードを入力してください。");
+}
+
+// ===== Fortune Handler =====
+async function handleFortune(val) {
+  const trimmed = normText(val);
+  const nameNorm = normName(trimmed);
+  const nameRec = nameMap.get(await lookupHash(nameNorm, "name"));
+  if (nameRec) {
+    showTyping(); await delay(1000+Math.random()*500); removeTyping();
+    const resp = await decryptRecord(nameRec, nameNorm, "name");
+    addBot(resp || "星図照合に失敗しました。もう一度、名前を入力してください。");
+    return;
+  }
+  const trigNorm = normKey(trimmed);
+  if ((await lookupHash(trigNorm, "trigger")) === OBF.t.h) {
+    showTyping(); await delay(1500); removeTyping();
+    const lines = await decryptJson(OBF.t, trigNorm, "trigger");
+    if (!Array.isArray(lines) || lines.length < 2) {
+      addBot("星図の復号に失敗しました。もう一度入力してください。");
+      return;
+    }
+    addBot(lines[0]);
+    await delay(2000);
+    addBot(lines[1]);
+    await delay(2500);
+    await glitch();
+    return;
+  }
+  showTyping(); await delay(1200+Math.random()*1000); removeTyping();
+  addBot(corruptFortuneText(pickFortune(trimmed)));
+}
+
+// ===== Terminal Handler =====
+async function handleTerminal(val) {
+  if (done) return;
+  const trimmed = normText(val);
+  showTyping(); await delay(400+Math.random()*300); removeTyping();
+
+  // Final keyword check
+  const finalNorm = normKey(trimmed);
+  if ((await lookupHash(finalNorm, "final")) === OBF.f.h) {
+    const payload = await decryptJson(OBF.f, finalNorm, "final");
+    if (!payload || !payload.location || !payload.message) {
+      addBot("最終認証データの復号に失敗しました。もう一度入力してください。");
+      return;
+    }
+    addBot("最終認証コード受領。\n\nオペレーター権限を承認。\n座標データを復号しています...");
+    await delay(1500);
+    addBot("<div class=\"loc-reveal\">\u{1F4CD} " + escHtml(payload.location) + "</div>\n" + escHtml(payload.message));
+    done = true;
+    inp.placeholder = "RESETで初期化できます";
+    saveState();
+    return;
+  }
+
+  // Sin check
+  const sinNorm = normText(trimmed);
+  const sH = await lookupHash(sinNorm, "sin");
+  const sinRec = sinMap.get(sH);
+  if (sinRec) {
+    if (answeredSins.has(sH)) { addBot("この認証断片は既に処理済みです。"); return; }
+    const payload = await decryptJson(sinRec, sinNorm, "sin");
+    if (!payload || !payload.coords) {
+      addBot("認証断片の復号に失敗しました。もう一度入力してください。");
+      return;
+    }
+    answeredSins.add(sH);
+    const count = answeredSins.size;
+    const c = payload.coords;
+    addBot("認証断片を確認。<span class=\"sin-count\">[" + count + "/" + SIN_TOTAL + "]</span>\n\n<span class=\"cmd-hl\">削除対象: " + escHtml(c) + "</span>\n\n手元の記録から該当セルの文字を抹消せよ。");
+    if (count === SIN_TOTAL) {
+      await delay(1200);
+      addBot("全認証断片の処理が完了した。\n\n記録に残された文字列を解読し、このターミナルに入力せよ。");
+    }
+    return;
+  }
+
+  // Wrong
+  termFails++;
+  let r = "不明なコマンド。認証キーワードを入力してください。";
+  if (termFails >= 3) {
+    r += answeredSins.size < SIN_TOTAL
+      ? "\n\n<span style=\"color:#ffaa00;font-size:13px\">HINT: 手元の資料を確認せよ。血族の罪を知っているか？</span>"
+      : "\n\n<span style=\"color:#ffaa00;font-size:13px\">HINT: グリッドに残された文字を、左上から順に読め。</span>";
+    termFails = 0;
+  }
+  addBot(r);
+}
+
+// ===== Send =====
+async function send() {
+  const v = inp.value.trim();
+  if (!v) return;
+  if (normKey(v) === "RESET") { resetAll(); return; }
+  if (done || busy) return;
+  inp.value = "";
+  busy = true;
+  inp.disabled = true;
+  sendBtn.disabled = true;
+  addUser(v);
+  try {
+    if (mode === "fortune") advanceFortuneCorruption();
+    if (mode === "fortune") await handleFortune(v);
+    else await handleTerminal(v);
+  } catch (_) {
+    removeTyping();
+    addBot("処理中にエラーが発生しました。ページをHTTPS環境で開き直すか、RESETで初期化してください。");
+  } finally {
+    busy = false;
+    inp.disabled = false;
+    sendBtn.disabled = false;
+    inp.focus();
+  }
+}
+
+inp.addEventListener("keydown", e => { if (e.key === "Enter") send(); });
+init();
+</script>
+</body>
+</html>

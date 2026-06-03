@@ -1,0 +1,11 @@
+# Keep the public GitHub Pages repository to index.html only unless reviewed.
+ARG*.zip
+*.xlsx
+handoff*.md
+ARG_Codex_Handoff.md
+arg_terminal_*.html
+build_obfuscated_arg.py
+*_script.js
+test_*.js
+OLD/
+チラシ.png
