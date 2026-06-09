@@ -149,7 +149,7 @@
   #shooting-stars-layer {
     position:fixed;
     inset:0;
-    z-index:0;
+    z-index:3;
     pointer-events:none;
     overflow:hidden;
   }
@@ -744,10 +744,10 @@ function spawnShootingStar() {
 
   const star = document.createElement("span");
   const img = document.createElement("img");
-  const duration = Math.round(3000 + Math.random() * 1600);
-  const size = Math.round(18 + Math.random() * 24);
-  const drift = Math.round(-110 + Math.random() * 220);
-  const opacity = (0.5 + Math.random() * 0.32).toFixed(2);
+  const duration = Math.round(6000 + Math.random() * 3200);
+  const size = Math.round(36 + Math.random() * 48);
+  const drift = Math.round(-150 + Math.random() * 300);
+  const opacity = (0.62 + Math.random() * 0.28).toFixed(2);
   const spin = Math.round(-35 + Math.random() * 70);
 
   star.className = "shooting-star";
