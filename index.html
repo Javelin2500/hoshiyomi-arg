@@ -13,6 +13,9 @@
     --fortune-panel: #fff5c8;
     --fortune-pink: #ff7ad9;
     --fortune-cyan: #58f0ff;
+    --visual-height: 100dvh;
+    --keyboard-offset: 0px;
+    --input-area-height: 64px;
   }
   * { margin:0; padding:0; box-sizing:border-box; }
   html { height:100%; }
@@ -21,6 +24,7 @@
     min-height:100svh;
     height:100vh;
     height:100dvh;
+    height:var(--visual-height);
     display:flex;
     flex-direction:column;
     align-items:center;
@@ -135,7 +139,7 @@
   body.terminal-mode .tiny-notice { display:none; }
 
   /* === CHAT === */
-  #chat { flex:1 1 auto; min-height:0; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:10px; scroll-behavior:smooth; }
+  #chat { flex:1 1 auto; min-height:0; overflow-y:auto; padding:16px; padding-bottom:calc(16px + var(--input-area-height)); display:flex; flex-direction:column; gap:10px; scroll-behavior:smooth; overscroll-behavior:contain; }
   .msg { max-width:82%; padding:10px 14px; border-radius:12px; line-height:1.7; font-size:14.5px; white-space:pre-wrap; animation:fadeUp .3s ease; }
   @keyframes fadeUp { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
 
@@ -200,10 +204,9 @@ body.terminal-mode button:disabled { opacity:.55; cursor:not-allowed; }
   @keyframes flicker { 0%{opacity:1} 50%{opacity:.7} 100%{opacity:1} }
 
   /* Input */
-  #input-area { flex:0 0 auto; display:flex; padding:10px 14px; padding-bottom:calc(10px + env(safe-area-inset-bottom, 0px)); gap:8px; transition:background var(--ts),border var(--ts); }
+  #input-area { position:fixed; left:50%; right:auto; bottom:var(--keyboard-offset); transform:translateX(-50%); z-index:20; display:flex; padding:10px 14px; padding-bottom:calc(10px + env(safe-area-inset-bottom, 0px)); gap:8px; transition:background var(--ts),border var(--ts); }
   body.fortune-mode #input-area {
-    position:relative;
-    z-index:1;
+    z-index:20;
     background:#ffe7fb;
     border:4px double #7f1499;
     border-bottom:0;
@@ -312,8 +315,8 @@ body.terminal-mode button:disabled { opacity:.55; cursor:not-allowed; }
   }
   body.fortune-mode.corrupt-4 #input-area,
   body.fortune-mode.corrupt-5 #input-area {
-    z-index:3;
-    transform:none;
+    z-index:20;
+    transform:translateX(-50%);
   }
   body.fortune-mode[class*="corrupt-"] .key-fragment {
     filter:none;
@@ -342,7 +345,7 @@ body.terminal-mode button:disabled { opacity:.55; cursor:not-allowed; }
     body.fortune-mode #header h1 { font-size:20px; letter-spacing:2px; }
     .counter-strip { font-size:11px; padding:3px 6px; }
     .tiny-notice { font-size:10.5px; }
-    #chat { padding:12px 10px; gap:9px; }
+    #chat { padding:12px 10px; padding-bottom:calc(12px + var(--input-area-height)); gap:9px; }
     .msg { max-width:90%; font-size:14px; padding:9px 11px; }
     #input-area { padding:9px 10px; padding-bottom:calc(9px + env(safe-area-inset-bottom, 0px)); }
     #input-area button { padding:10px 13px; }
@@ -486,12 +489,30 @@ let sinMap = new Map();
 
 const chat  = document.getElementById("chat");
 const inp   = document.getElementById("userInput");
+const inputArea = document.getElementById("input-area");
 const sendBtn = document.querySelector("#input-area button");
 const visitorCounter = document.getElementById("visitorCounter");
 const fortuneTitle = document.getElementById("fortuneTitle");
 const fortuneSubtitle = document.getElementById("fortuneSubtitle");
 const noticeBadge = document.getElementById("noticeBadge");
 const noticeLine = document.getElementById("noticeLine");
+
+function isChatPinnedToBottom() {
+  return chat.scrollHeight - chat.scrollTop - chat.clientHeight < 48;
+}
+function syncViewportLayout(forceBottom = false) {
+  const pinned = forceBottom || isChatPinnedToBottom();
+  const vv = window.visualViewport;
+  const visualHeight = vv ? vv.height : window.innerHeight;
+  const keyboardOffset = vv ? Math.max(0, window.innerHeight - vv.height - vv.offsetTop) : 0;
+  document.documentElement.style.setProperty("--visual-height", visualHeight + "px");
+  document.documentElement.style.setProperty("--keyboard-offset", keyboardOffset + "px");
+  document.documentElement.style.setProperty("--input-area-height", inputArea.offsetHeight + "px");
+  if (pinned) chat.scrollTop = chat.scrollHeight;
+}
+function scheduleViewportSync(forceBottom = false) {
+  requestAnimationFrame(() => syncViewportLayout(forceBottom));
+}
 
 // ===== Utility =====
 const LOOKUP_PREFIX = "hoshiyomi-arg-v2|lookup|";
@@ -666,7 +687,7 @@ function restoreState() {
     inp.disabled = false;
     sendBtn.disabled = false;
     if (done) inp.placeholder = "RESETで初期化できます";
-    chat.scrollTop = chat.scrollHeight;
+    syncViewportLayout(true);
     return true;
   } catch (_) {
     safeStorage(storage => storage.removeItem(STORAGE_KEY));
@@ -691,6 +712,7 @@ function resetAll() {
   sendBtn.disabled = false;
   addBot(GREETING);
   saveState();
+  syncViewportLayout(true);
   inp.focus();
 }
 
@@ -704,7 +726,7 @@ function addMsg(t, cls) {
   if (cls === "bot" && isProtectedBotMessage(t)) d.classList.add("protected-msg");
   d.innerHTML = t;
   chat.appendChild(d);
-  chat.scrollTop = chat.scrollHeight;
+  syncViewportLayout(true);
   saveState();
 }
 function addBot(t) { addMsg(t, "bot"); }
@@ -712,7 +734,7 @@ function addUser(t) { addMsg(escHtml(t), "user"); }
 function showTyping() {
   const d = document.createElement("div");
   d.className = "msg bot typing-dots"; d.id = "typing"; d.textContent = "";
-  chat.appendChild(d); chat.scrollTop = chat.scrollHeight;
+  chat.appendChild(d); syncViewportLayout(true);
 }
 function removeTyping() { const t = document.getElementById("typing"); if (t) t.remove(); }
 
@@ -860,6 +882,15 @@ async function send() {
 }
 
 inp.addEventListener("keydown", e => { if (e.key === "Enter") send(); });
+window.addEventListener("resize", () => scheduleViewportSync());
+window.addEventListener("orientationchange", () => scheduleViewportSync(true));
+inp.addEventListener("focus", () => scheduleViewportSync(true));
+inp.addEventListener("blur", () => scheduleViewportSync());
+if (window.visualViewport) {
+  window.visualViewport.addEventListener("resize", () => scheduleViewportSync());
+  window.visualViewport.addEventListener("scroll", () => scheduleViewportSync());
+}
+syncViewportLayout(true);
 init();
 </script>
 </body>
