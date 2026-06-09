@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
@@ -144,6 +144,62 @@
   #chat-scroll-spacer { flex:0 0 var(--keyboard-scroll-space); width:100%; pointer-events:none; }
   .msg { max-width:82%; padding:10px 14px; border-radius:12px; line-height:1.7; font-size:14.5px; white-space:pre-wrap; animation:fadeUp .3s ease; }
   @keyframes fadeUp { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+
+  /* Shooting stars */
+  #shooting-stars-layer {
+    position:fixed;
+    inset:0;
+    z-index:0;
+    pointer-events:none;
+    overflow:hidden;
+  }
+  body.terminal-mode #shooting-stars-layer { display:none; }
+  .shooting-star {
+    position:fixed;
+    top:-70px;
+    left:var(--star-x);
+    width:var(--star-size);
+    height:var(--star-size);
+    opacity:0;
+    pointer-events:none;
+    transform-origin:center;
+    animation:shootingStarFall var(--star-duration) linear forwards;
+    will-change:transform, opacity;
+  }
+  .shooting-star::before {
+    content:"";
+    position:absolute;
+    right:54%;
+    top:50%;
+    width:var(--star-tail);
+    height:2px;
+    border-radius:999px;
+    background:linear-gradient(90deg, transparent, #fff7a880, #58f0ff66);
+    transform:translateY(-50%);
+    filter:blur(.2px);
+  }
+  .shooting-star img {
+    display:block;
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    border-radius:50%;
+    box-shadow:0 0 7px #fff7a8aa, 0 0 13px #58f0ff66;
+  }
+  @keyframes shootingStarFall {
+    0% {
+      opacity:0;
+      transform:translate3d(0, -14vh, 0) rotate(var(--star-rot)) scale(.68);
+    }
+    8%, 76% { opacity:var(--star-opacity); }
+    100% {
+      opacity:0;
+      transform:translate3d(var(--star-drift), calc(100vh + 130px), 0) rotate(calc(var(--star-rot) + var(--star-spin))) scale(1);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #shooting-stars-layer { display:none; }
+  }
 
   body.fortune-mode #chat {
     position:relative;
@@ -356,6 +412,7 @@ body.terminal-mode button:disabled { opacity:.55; cursor:not-allowed; }
 </head>
 <body class="fortune-mode">
 
+<div id="shooting-stars-layer" aria-hidden="true"></div>
 <div id="header">
   <h1 id="fortuneTitle">✦ 星詠みの館 ✦</h1>
   <p id="fortuneSubtitle">あなたの運命を紐解きます</p>
@@ -454,6 +511,17 @@ const FORTUNE_RULES = [
 const OMINOUS_RATE = 0.11;
 const MAX_CORRUPTION_LEVEL = 5;
 const STORAGE_KEY = "hoshiyomiArgStateV2";
+const SHOOTING_STAR_IMAGES = [
+  "assets/.stars/a7f4c1.jpg",
+  "assets/.stars/d2b9e6.jpg",
+  "assets/.stars/f0c3a8.jpg",
+  "assets/.stars/b6e1d4.jpg",
+  "assets/.stars/e9a5b2.jpg",
+  "assets/.stars/c4f8d0.jpg",
+  "assets/.stars/f7b1c9.jpg"
+];
+const SHOOTING_STAR_INTERVALS = [10000, 6500, 3800, 1800, 800, 300];
+const SHOOTING_STAR_MAX_ACTIVE = 26;
 const CORRUPT_COUNTERS = ["003103", "003?03", "00?1:3", "0?▒1:3", "?0▒1█3", "██?▒:3"];
 const CORRUPT_HEADER_TEXTS = [
   { title: "✦ 星詠みの館 ✦", subtitle: "あなたの運命を紐解きます", badge: "無料鑑定中", notice: "名前・悩み・直感で浮かんだ言葉を入力できます" },
@@ -498,6 +566,9 @@ const fortuneTitle = document.getElementById("fortuneTitle");
 const fortuneSubtitle = document.getElementById("fortuneSubtitle");
 const noticeBadge = document.getElementById("noticeBadge");
 const noticeLine = document.getElementById("noticeLine");
+const shootingStarsLayer = document.getElementById("shooting-stars-layer");
+const shootingStarMotionQuery = window.matchMedia ? window.matchMedia("(prefers-reduced-motion: reduce)") : null;
+let shootingStarTimer = null;
 let maxVisualViewportHeight = window.innerHeight;
 let chatSpacer = null;
 
@@ -654,6 +725,60 @@ function pickFortune(input) {
   const pool = useOmen ? FORTUNE_CATEGORIES.omen : FORTUNE_CATEGORIES[category];
   return pickFromPool(pool || FORTUNE_CATEGORIES.general);
 }
+function shouldRunShootingStars() {
+  return mode === "fortune" && shootingStarsLayer && !(shootingStarMotionQuery && shootingStarMotionQuery.matches);
+}
+function getShootingStarDelay() {
+  return SHOOTING_STAR_INTERVALS[corruptionLevel] || SHOOTING_STAR_INTERVALS[0];
+}
+function stopShootingStars(clearActive = false) {
+  if (shootingStarTimer) {
+    clearTimeout(shootingStarTimer);
+    shootingStarTimer = null;
+  }
+  if (clearActive && shootingStarsLayer) shootingStarsLayer.textContent = "";
+}
+function spawnShootingStar() {
+  if (!shouldRunShootingStars()) return;
+  if (shootingStarsLayer.children.length >= SHOOTING_STAR_MAX_ACTIVE) return;
+
+  const star = document.createElement("span");
+  const img = document.createElement("img");
+  const duration = Math.round(3000 + Math.random() * 1600);
+  const size = Math.round(18 + Math.random() * 24);
+  const drift = Math.round(-110 + Math.random() * 220);
+  const opacity = (0.5 + Math.random() * 0.32).toFixed(2);
+  const spin = Math.round(-35 + Math.random() * 70);
+
+  star.className = "shooting-star";
+  star.style.setProperty("--star-x", Math.round(-4 + Math.random() * 108) + "vw");
+  star.style.setProperty("--star-size", size + "px");
+  star.style.setProperty("--star-duration", duration + "ms");
+  star.style.setProperty("--star-drift", drift + "px");
+  star.style.setProperty("--star-opacity", opacity);
+  star.style.setProperty("--star-rot", Math.round(116 + Math.random() * 28) + "deg");
+  star.style.setProperty("--star-spin", spin + "deg");
+  star.style.setProperty("--star-tail", Math.round(size * (1.5 + Math.random())) + "px");
+
+  img.src = SHOOTING_STAR_IMAGES[Math.floor(Math.random() * SHOOTING_STAR_IMAGES.length)];
+  img.alt = "";
+  img.decoding = "async";
+  star.appendChild(img);
+  shootingStarsLayer.appendChild(star);
+
+  star.addEventListener("animationend", () => star.remove(), { once:true });
+  setTimeout(() => star.remove(), duration + 500);
+}
+function restartShootingStars() {
+  stopShootingStars(false);
+  if (!shouldRunShootingStars()) return;
+  const jitter = 0.86 + Math.random() * 0.28;
+  shootingStarTimer = setTimeout(() => {
+    shootingStarTimer = null;
+    spawnShootingStar();
+    restartShootingStars();
+  }, Math.round(getShootingStarDelay() * jitter));
+}
 function setCorruptionLevel(level) {
   corruptionLevel = Math.max(0, Math.min(MAX_CORRUPTION_LEVEL, level));
   for (let i = 1; i <= MAX_CORRUPTION_LEVEL; i++) {
@@ -666,6 +791,7 @@ function setCorruptionLevel(level) {
   if (fortuneSubtitle) fortuneSubtitle.textContent = headerText.subtitle;
   if (noticeBadge) noticeBadge.textContent = headerText.badge;
   if (noticeLine) noticeLine.textContent = headerText.notice;
+  restartShootingStars();
 }
 function advanceFortuneCorruption() {
   if (mode !== "fortune") return;
@@ -696,6 +822,7 @@ function safeStorage(action) {
 function applyModeShell(nextMode) {
   mode = nextMode;
   if (mode === "terminal") {
+    stopShootingStars(true);
     document.body.className = "terminal-mode";
     document.title = "\u2593\u2593\u2593 UNKNOWN TERMINAL \u2593\u2593\u2593";
     if (fortuneTitle) fortuneTitle.textContent = "\u2593\u2593\u2593 UNKNOWN TERMINAL \u2593\u2593\u2593";
@@ -944,8 +1071,21 @@ if (window.visualViewport) {
   window.visualViewport.addEventListener("resize", () => scheduleViewportSync());
   window.visualViewport.addEventListener("scroll", () => scheduleViewportSync());
 }
+if (shootingStarMotionQuery) {
+  const handleShootingStarMotionChange = () => {
+    if (shootingStarMotionQuery.matches) stopShootingStars(true);
+    else restartShootingStars();
+  };
+  if (shootingStarMotionQuery.addEventListener) {
+    shootingStarMotionQuery.addEventListener("change", handleShootingStarMotionChange);
+  } else if (shootingStarMotionQuery.addListener) {
+    shootingStarMotionQuery.addListener(handleShootingStarMotionChange);
+  }
+}
 syncViewportLayout(true);
 init();
+restartShootingStars();
 </script>
 </body>
 </html>
+
