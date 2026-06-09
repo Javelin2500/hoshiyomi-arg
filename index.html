@@ -16,6 +16,7 @@
     --visual-height: 100dvh;
     --keyboard-offset: 0px;
     --input-area-height: 64px;
+    --keyboard-scroll-space: 0px;
   }
   * { margin:0; padding:0; box-sizing:border-box; }
   html { height:100%; }
@@ -140,6 +141,7 @@
 
   /* === CHAT === */
   #chat { flex:1 1 auto; min-height:0; overflow-y:auto; padding:16px; padding-bottom:calc(16px + var(--input-area-height)); display:flex; flex-direction:column; gap:10px; scroll-behavior:smooth; overscroll-behavior:contain; }
+  #chat::after { content:""; flex:0 0 var(--keyboard-scroll-space); }
   .msg { max-width:82%; padding:10px 14px; border-radius:12px; line-height:1.7; font-size:14.5px; white-space:pre-wrap; animation:fadeUp .3s ease; }
   @keyframes fadeUp { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
 
@@ -496,6 +498,7 @@ const fortuneTitle = document.getElementById("fortuneTitle");
 const fortuneSubtitle = document.getElementById("fortuneSubtitle");
 const noticeBadge = document.getElementById("noticeBadge");
 const noticeLine = document.getElementById("noticeLine");
+let maxVisualViewportHeight = window.innerHeight;
 
 function isChatPinnedToBottom() {
   return chat.scrollHeight - chat.scrollTop - chat.clientHeight < 48;
@@ -504,14 +507,26 @@ function syncViewportLayout(forceBottom = false) {
   const pinned = forceBottom || isChatPinnedToBottom();
   const vv = window.visualViewport;
   const visualHeight = vv ? vv.height : window.innerHeight;
-  const keyboardOffset = vv ? Math.max(0, window.innerHeight - vv.height - vv.offsetTop) : 0;
+  if (document.activeElement !== inp) {
+    maxVisualViewportHeight = Math.max(maxVisualViewportHeight, visualHeight, window.innerHeight);
+  }
+  const viewportLoss = Math.max(0, maxVisualViewportHeight - visualHeight - (vv ? vv.offsetTop : 0));
+  const keyboardOffset = Math.max(0, viewportLoss);
+  const keyboardScrollSpace = Math.max(0, keyboardOffset - inputArea.offsetHeight);
   document.documentElement.style.setProperty("--visual-height", visualHeight + "px");
   document.documentElement.style.setProperty("--keyboard-offset", keyboardOffset + "px");
   document.documentElement.style.setProperty("--input-area-height", inputArea.offsetHeight + "px");
-  if (pinned) chat.scrollTop = chat.scrollHeight;
+  document.documentElement.style.setProperty("--keyboard-scroll-space", keyboardScrollSpace + "px");
+  if (pinned) {
+    chat.scrollTop = Math.max(0, chat.scrollHeight - chat.clientHeight - keyboardScrollSpace);
+  }
 }
 function scheduleViewportSync(forceBottom = false) {
   requestAnimationFrame(() => syncViewportLayout(forceBottom));
+}
+function resetViewportBaseline() {
+  maxVisualViewportHeight = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+  scheduleViewportSync(true);
 }
 
 // ===== Utility =====
@@ -883,7 +898,7 @@ async function send() {
 
 inp.addEventListener("keydown", e => { if (e.key === "Enter") send(); });
 window.addEventListener("resize", () => scheduleViewportSync());
-window.addEventListener("orientationchange", () => scheduleViewportSync(true));
+window.addEventListener("orientationchange", resetViewportBaseline);
 inp.addEventListener("focus", () => scheduleViewportSync(true));
 inp.addEventListener("blur", () => scheduleViewportSync());
 if (window.visualViewport) {
