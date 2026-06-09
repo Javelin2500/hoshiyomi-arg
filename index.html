@@ -561,6 +561,10 @@ function resetViewportBaseline() {
   maxVisualViewportHeight = window.visualViewport ? window.visualViewport.height : window.innerHeight;
   scheduleViewportSync(true);
 }
+function releaseInputForReading() {
+  inp.blur();
+  scheduleViewportSync(true);
+}
 
 // ===== Utility =====
 const LOOKUP_PREFIX = "hoshiyomi-arg-v2|lookup|";
@@ -762,8 +766,7 @@ function resetAll() {
   sendBtn.disabled = false;
   addBot(GREETING);
   saveState();
-  syncViewportLayout(true);
-  inp.focus();
+  releaseInputForReading();
 }
 
 // ===== UI =====
@@ -912,6 +915,7 @@ async function send() {
   if (normKey(v) === "RESET") { resetAll(); return; }
   if (done || busy) return;
   inp.value = "";
+  releaseInputForReading();
   busy = true;
   inp.disabled = true;
   sendBtn.disabled = true;
@@ -927,7 +931,7 @@ async function send() {
     busy = false;
     inp.disabled = false;
     sendBtn.disabled = false;
-    inp.focus();
+    releaseInputForReading();
   }
 }
 
