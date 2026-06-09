@@ -141,7 +141,7 @@
 
   /* === CHAT === */
   #chat { flex:1 1 auto; min-height:0; overflow-y:auto; padding:16px; padding-bottom:calc(16px + var(--input-area-height)); display:flex; flex-direction:column; gap:10px; scroll-behavior:smooth; overscroll-behavior:contain; }
-  #chat::after { content:""; flex:0 0 var(--keyboard-scroll-space); }
+  #chat-scroll-spacer { flex:0 0 var(--keyboard-scroll-space); width:100%; pointer-events:none; }
   .msg { max-width:82%; padding:10px 14px; border-radius:12px; line-height:1.7; font-size:14.5px; white-space:pre-wrap; animation:fadeUp .3s ease; }
   @keyframes fadeUp { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
 
@@ -499,20 +499,53 @@ const fortuneSubtitle = document.getElementById("fortuneSubtitle");
 const noticeBadge = document.getElementById("noticeBadge");
 const noticeLine = document.getElementById("noticeLine");
 let maxVisualViewportHeight = window.innerHeight;
+let chatSpacer = null;
+
+function ensureChatSpacer() {
+  const spacers = Array.from(chat.querySelectorAll("#chat-scroll-spacer"));
+  spacers.slice(1).forEach(el => el.remove());
+  chatSpacer = spacers[0] || null;
+  if (!chatSpacer || chatSpacer.parentElement !== chat) {
+    if (chatSpacer) chatSpacer.remove();
+    chatSpacer = document.createElement("div");
+    chatSpacer.id = "chat-scroll-spacer";
+    chatSpacer.setAttribute("aria-hidden", "true");
+    chat.appendChild(chatSpacer);
+  }
+  if (chatSpacer !== chat.lastElementChild) chat.appendChild(chatSpacer);
+  return chatSpacer;
+}
+function getStoredChatHtml() {
+  const spacer = ensureChatSpacer();
+  return Array.from(chat.children)
+    .filter(el => el !== spacer)
+    .map(el => el.outerHTML)
+    .join("");
+}
 
 function isChatPinnedToBottom() {
-  return chat.scrollHeight - chat.scrollTop - chat.clientHeight < 48;
+  const spacer = ensureChatSpacer();
+  return chat.scrollHeight - spacer.offsetHeight - chat.scrollTop - chat.clientHeight < 48;
 }
 function syncViewportLayout(forceBottom = false) {
+  const spacer = ensureChatSpacer();
   const pinned = forceBottom || isChatPinnedToBottom();
   const vv = window.visualViewport;
+  const inputFocused = document.activeElement === inp;
   const visualHeight = vv ? vv.height : window.innerHeight;
-  if (document.activeElement !== inp) {
+  if (!inputFocused) {
     maxVisualViewportHeight = Math.max(maxVisualViewportHeight, visualHeight, window.innerHeight);
   }
   const viewportLoss = Math.max(0, maxVisualViewportHeight - visualHeight - (vv ? vv.offsetTop : 0));
-  const keyboardOffset = Math.max(0, viewportLoss);
-  const keyboardScrollSpace = Math.max(0, keyboardOffset - inputArea.offsetHeight);
+  const keyboardOffset = inputFocused ? Math.max(0, viewportLoss) : 0;
+  const currentSpacerHeight = spacer.offsetHeight;
+  const contentHeight = Math.max(0, chat.scrollHeight - currentSpacerHeight);
+  const minimumScrollRoom = inputFocused
+    ? Math.max(0, chat.clientHeight - contentHeight + Math.min(220, Math.round(chat.clientHeight * 0.45)))
+    : 0;
+  const keyboardScrollSpace = inputFocused
+    ? Math.max(keyboardOffset + inputArea.offsetHeight, minimumScrollRoom)
+    : 0;
   document.documentElement.style.setProperty("--visual-height", visualHeight + "px");
   document.documentElement.style.setProperty("--keyboard-offset", keyboardOffset + "px");
   document.documentElement.style.setProperty("--input-area-height", inputArea.offsetHeight + "px");
@@ -676,7 +709,7 @@ function applyModeShell(nextMode) {
 function saveState() {
   const state = {
     mode,
-    chatHtml: chat.innerHTML,
+    chatHtml: getStoredChatHtml(),
     answeredSins: Array.from(answeredSins),
     termFails,
     done,
@@ -698,6 +731,7 @@ function restoreState() {
     fortuneInputCount = Number.isFinite(state.fortuneInputCount) ? state.fortuneInputCount : 0;
     corruptionLevel = Number.isFinite(state.corruptionLevel) ? state.corruptionLevel : 0;
     chat.innerHTML = typeof state.chatHtml === "string" ? state.chatHtml : "";
+    ensureChatSpacer();
     applyModeShell(state.mode === "terminal" ? "terminal" : "fortune");
     inp.disabled = false;
     sendBtn.disabled = false;
@@ -720,6 +754,7 @@ function resetAll() {
   fortuneInputCount = 0;
   corruptionLevel = 0;
   chat.innerHTML = "";
+  ensureChatSpacer();
   applyModeShell("fortune");
   setCorruptionLevel(0);
   inp.value = "";
@@ -740,7 +775,7 @@ function addMsg(t, cls) {
   d.className = "msg " + cls;
   if (cls === "bot" && isProtectedBotMessage(t)) d.classList.add("protected-msg");
   d.innerHTML = t;
-  chat.appendChild(d);
+  chat.insertBefore(d, ensureChatSpacer());
   syncViewportLayout(true);
   saveState();
 }
@@ -749,7 +784,7 @@ function addUser(t) { addMsg(escHtml(t), "user"); }
 function showTyping() {
   const d = document.createElement("div");
   d.className = "msg bot typing-dots"; d.id = "typing"; d.textContent = "";
-  chat.appendChild(d); syncViewportLayout(true);
+  chat.insertBefore(d, ensureChatSpacer()); syncViewportLayout(true);
 }
 function removeTyping() { const t = document.getElementById("typing"); if (t) t.remove(); }
 
