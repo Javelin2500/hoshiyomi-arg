@@ -282,13 +282,6 @@
     color:#ffdd00;
     font-weight:bold;
   }
-  .terminal-system-msg .system-target {
-    display:block;
-    margin-top:2px;
-    color:#00ff8888;
-    font-size:12px;
-  }
-
   /* Typing indicator */
   .typing-dots::after { content:''; animation:dots 1.2s steps(4) infinite; }
   @keyframes dots { 0%{content:''} 25%{content:'.'} 50%{content:'..'} 75%{content:'...'} }
@@ -887,8 +880,7 @@ function formatMinazukiCountdown(now = Date.now()) {
 function buildMinazukiSystemHtml() {
   return "<span class=\"system-label\">SYSTEM MESSAGE</span>"
     + "星図外通信を受信。\n水無月の終わりを待て。\n\n"
-    + "<span class=\"terminal-countdown\">COUNTDOWN: " + escHtml(formatMinazukiCountdown()) + "</span>\n"
-    + "<span class=\"system-target\">TARGET: 2026-06-30 18:00 JST</span>";
+    + "<span class=\"terminal-countdown\">COUNTDOWN: " + escHtml(formatMinazukiCountdown()) + "</span>";
 }
 function updateMinazukiCountdown() {
   const el = document.querySelector("#" + MINAZUKI_MESSAGE_ID + " .terminal-countdown");
