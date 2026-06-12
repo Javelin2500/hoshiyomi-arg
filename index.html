@@ -185,6 +185,14 @@
     object-fit:cover;
     border-radius:50%;
     box-shadow:0 0 7px #fff7a8aa, 0 0 13px #58f0ff66;
+    transform-origin:center;
+    animation:shootingStarImageSpin var(--star-image-spin-duration) linear infinite;
+    animation-delay:var(--star-image-spin-delay);
+    animation-direction:var(--star-image-spin-direction);
+    will-change:transform;
+  }
+  @keyframes shootingStarImageSpin {
+    to { transform:rotate(1turn); }
   }
   @keyframes shootingStarFall {
     0% {
@@ -749,6 +757,7 @@ function spawnShootingStar() {
   const drift = Math.round(-150 + Math.random() * 300);
   const opacity = (0.62 + Math.random() * 0.28).toFixed(2);
   const spin = Math.round(-35 + Math.random() * 70);
+  const imageSpinDuration = Math.round(500 + Math.random() * 1900);
 
   star.className = "shooting-star";
   star.style.setProperty("--star-x", Math.round(-4 + Math.random() * 108) + "vw");
@@ -759,6 +768,9 @@ function spawnShootingStar() {
   star.style.setProperty("--star-rot", Math.round(116 + Math.random() * 28) + "deg");
   star.style.setProperty("--star-spin", spin + "deg");
   star.style.setProperty("--star-tail", Math.round(size * (1.5 + Math.random())) + "px");
+  star.style.setProperty("--star-image-spin-duration", imageSpinDuration + "ms");
+  star.style.setProperty("--star-image-spin-delay", -Math.round(Math.random() * imageSpinDuration) + "ms");
+  star.style.setProperty("--star-image-spin-direction", Math.random() < 0.5 ? "normal" : "reverse");
 
   img.src = SHOOTING_STAR_IMAGES[Math.floor(Math.random() * SHOOTING_STAR_IMAGES.length)];
   img.alt = "";
