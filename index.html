@@ -251,6 +251,43 @@
   /* Terminal accents */
   .cmd-hl { color:#ff8844; font-weight:bold; }
   .sin-count { color:#888; font-size:12px; margin-left:6px; }
+  .terminal-system-msg {
+    background:#06120c;
+    border:1px solid #00ff8866;
+    color:#b8ffe0;
+    box-shadow:0 0 12px #00ff881f;
+  }
+  #minazuki-system-message {
+    display:none;
+    width:min(100%, 620px);
+    margin:10px auto 0;
+    padding:8px 10px;
+    border-radius:4px;
+    text-align:left;
+    font-family:'Courier New',monospace;
+    font-size:12px;
+    line-height:1.45;
+    white-space:pre-wrap;
+  }
+  body.terminal-mode #minazuki-system-message { display:block; }
+  .terminal-system-msg .system-label {
+    display:block;
+    color:#00ff88;
+    font-weight:bold;
+    letter-spacing:1.5px;
+  }
+  .terminal-countdown {
+    display:block;
+    margin-top:8px;
+    color:#ffdd00;
+    font-weight:bold;
+  }
+  .terminal-system-msg .system-target {
+    display:block;
+    margin-top:2px;
+    color:#00ff8888;
+    font-size:12px;
+  }
 
   /* Typing indicator */
   .typing-dots::after { content:''; animation:dots 1.2s steps(4) infinite; }
@@ -423,6 +460,7 @@ body.terminal-mode button:disabled { opacity:.55; cursor:not-allowed; }
 <div id="shooting-stars-layer" aria-hidden="true"></div>
 <div id="header">
   <h1 id="fortuneTitle">✦ 星詠みの館 ✦</h1>
+  <div id="minazuki-system-message" class="terminal-system-msg" aria-live="polite"></div>
   <p id="fortuneSubtitle">あなたの運命を紐解きます</p>
   <div class="counter-strip">あなたは <b id="visitorCounter">003103</b> 番目のお客様です。キリバン報告は星に願ってください。</div>
   <div class="tiny-notice"><span id="noticeBadge">無料鑑定中</span> / <span id="noticeLine">名前・悩み・直感で浮かんだ言葉を入力できます</span></div>
@@ -519,6 +557,8 @@ const FORTUNE_RULES = [
 const OMINOUS_RATE = 0.11;
 const MAX_CORRUPTION_LEVEL = 5;
 const STORAGE_KEY = "hoshiyomiArgStateV2";
+const MINAZUKI_MESSAGE_ID = "minazuki-system-message";
+const MINAZUKI_TARGET_MS = Date.parse("2026-06-30T18:00:00+09:00");
 const SHOOTING_STAR_IMAGES = [
   "assets/s/a7f4c1.jpg",
   "assets/s/d2b9e6.jpg",
@@ -572,6 +612,7 @@ const sendBtn = document.querySelector("#input-area button");
 const visitorCounter = document.getElementById("visitorCounter");
 const fortuneTitle = document.getElementById("fortuneTitle");
 const fortuneSubtitle = document.getElementById("fortuneSubtitle");
+const minazukiSystemMessage = document.getElementById(MINAZUKI_MESSAGE_ID);
 const noticeBadge = document.getElementById("noticeBadge");
 const noticeLine = document.getElementById("noticeLine");
 const shootingStarsLayer = document.getElementById("shooting-stars-layer");
@@ -579,6 +620,7 @@ const shootingStarMotionQuery = window.matchMedia ? window.matchMedia("(prefers-
 let shootingStarTimer = null;
 let maxVisualViewportHeight = window.innerHeight;
 let chatSpacer = null;
+let minazukiCountdownTimer = null;
 
 function ensureChatSpacer() {
   const spacers = Array.from(chat.querySelectorAll("#chat-scroll-spacer"));
@@ -831,6 +873,53 @@ function corruptFortuneText(text) {
 function safeStorage(action) {
   try { return action(localStorage); } catch (_) { return null; }
 }
+function pad2(n) { return String(n).padStart(2, "0"); }
+function formatMinazukiCountdown(now = Date.now()) {
+  const remaining = MINAZUKI_TARGET_MS - now;
+  if (!Number.isFinite(MINAZUKI_TARGET_MS) || remaining <= 0) return "待機時刻に到達";
+  const totalSeconds = Math.floor(remaining / 1000);
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  return "あと " + days + "日 " + pad2(hours) + ":" + pad2(minutes) + ":" + pad2(seconds);
+}
+function buildMinazukiSystemHtml() {
+  return "<span class=\"system-label\">SYSTEM MESSAGE</span>"
+    + "星図外通信を受信。\n水無月の終わりを待て。\n\n"
+    + "<span class=\"terminal-countdown\">COUNTDOWN: " + escHtml(formatMinazukiCountdown()) + "</span>\n"
+    + "<span class=\"system-target\">TARGET: 2026-06-30 18:00 JST</span>";
+}
+function updateMinazukiCountdown() {
+  const el = document.querySelector("#" + MINAZUKI_MESSAGE_ID + " .terminal-countdown");
+  if (!el) return false;
+  el.textContent = "COUNTDOWN: " + formatMinazukiCountdown();
+  return true;
+}
+function stopMinazukiCountdown() {
+  if (minazukiCountdownTimer) {
+    clearInterval(minazukiCountdownTimer);
+    minazukiCountdownTimer = null;
+  }
+}
+function startMinazukiCountdown() {
+  stopMinazukiCountdown();
+  if (!updateMinazukiCountdown()) return;
+  minazukiCountdownTimer = setInterval(() => {
+    if (!updateMinazukiCountdown()) stopMinazukiCountdown();
+  }, 1000);
+}
+function removeStoredMinazukiChatMessages() {
+  Array.from(chat.querySelectorAll("#" + MINAZUKI_MESSAGE_ID)).forEach(el => el.remove());
+}
+function ensureMinazukiSystemMessage(insertIfMissing = false) {
+  removeStoredMinazukiChatMessages();
+  if (!minazukiSystemMessage) return null;
+  minazukiSystemMessage.innerHTML = buildMinazukiSystemHtml();
+  if (insertIfMissing) saveState();
+  startMinazukiCountdown();
+  return minazukiSystemMessage;
+}
 function applyModeShell(nextMode) {
   mode = nextMode;
   if (mode === "terminal") {
@@ -843,6 +932,7 @@ function applyModeShell(nextMode) {
     sendBtn.textContent = "実行";
     return;
   }
+  stopMinazukiCountdown();
   document.body.className = "fortune-mode";
   document.title = "✦ 星詠みの館 ✦";
   inp.placeholder = "なんでも聞いてみて...";
@@ -876,6 +966,7 @@ function restoreState() {
     chat.innerHTML = typeof state.chatHtml === "string" ? state.chatHtml : "";
     ensureChatSpacer();
     applyModeShell(state.mode === "terminal" ? "terminal" : "fortune");
+    if (mode === "terminal") ensureMinazukiSystemMessage(true);
     inp.disabled = false;
     sendBtn.disabled = false;
     if (done) inp.placeholder = "RESETで初期化できます";
@@ -888,6 +979,7 @@ function restoreState() {
 }
 function resetAll() {
   safeStorage(storage => storage.removeItem(STORAGE_KEY));
+  stopMinazukiCountdown();
   mode = "fortune";
   answeredSins = new Set();
   termFails = 0;
@@ -958,6 +1050,7 @@ async function glitch() {
   ov.classList.remove("active");
   await delay(300);
   addBot("接続確立。\n\nこのターミナルは認証プロトコルにより保護されています。\n認証キーワードを入力してください。");
+  ensureMinazukiSystemMessage(true);
 }
 
 // ===== Fortune Handler =====
@@ -1100,4 +1193,3 @@ restartShootingStars();
 </script>
 </body>
 </html>
-
