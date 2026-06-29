@@ -282,6 +282,14 @@
     color:#ffdd00;
     font-weight:bold;
   }
+  .terminal-link {
+    color:#ffdd00;
+    font-weight:bold;
+    text-decoration:underline;
+    text-underline-offset:3px;
+    overflow-wrap:anywhere;
+  }
+  body.terminal-mode .terminal-link:visited { color:#d7bfff; }
   /* Typing indicator */
   .typing-dots::after { content:''; animation:dots 1.2s steps(4) infinite; }
   @keyframes dots { 0%{content:''} 25%{content:'.'} 50%{content:'..'} 75%{content:'...'} }
@@ -552,6 +560,9 @@ const MAX_CORRUPTION_LEVEL = 5;
 const STORAGE_KEY = "hoshiyomiArgStateV2";
 const MINAZUKI_MESSAGE_ID = "minazuki-system-message";
 const MINAZUKI_TARGET_MS = Date.parse("2026-06-30T18:00:00+09:00");
+// TODO: Replace these placeholder trigger/URL values with the final message-site release values.
+const TERMINAL_LINK_TRIGGER = "星図外通信";
+const TERMINAL_LINK_URL = "https://www.google.com/";
 const SHOOTING_STAR_IMAGES = [
   "assets/s/a7f4c1.jpg",
   "assets/s/d2b9e6.jpg",
@@ -738,6 +749,7 @@ async function decryptJson(record, normed, purpose) {
   try { return JSON.parse(raw); } catch (_) { return null; }
 }
 function escHtml(s) { return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+function escAttr(s) { return escHtml(String(s)).replace(/"/g,"&quot;"); }
 function normText(s) { return s.normalize("NFKC").trim(); }
 function normKey(s) { return normText(s).toUpperCase().replace(/\s+/g,""); }
 function normName(s) {
@@ -882,6 +894,16 @@ function buildMinazukiSystemHtml() {
     + "星図外通信を受信。\n水無月の終わりを待て。\n\n"
     + "<span class=\"terminal-countdown\">COUNTDOWN: " + escHtml(formatMinazukiCountdown()) + "</span>";
 }
+function isTerminalLinkTrigger(input) {
+  return normKey(input) === normKey(TERMINAL_LINK_TRIGGER);
+}
+function buildTerminalLinkMessage() {
+  const url = TERMINAL_LINK_URL;
+  return "星図外通信を復号。\n\n"
+    + "封緘された記録への経路を開示。\n\n"
+    + "MESSAGE SITE:\n"
+    + "<a class=\"terminal-link\" href=\"" + escAttr(url) + "\" target=\"_blank\" rel=\"noopener noreferrer\">" + escHtml(url) + "</a>";
+}
 function updateMinazukiCountdown() {
   const el = document.querySelector("#" + MINAZUKI_MESSAGE_ID + " .terminal-countdown");
   if (!el) return false;
@@ -994,7 +1016,7 @@ function resetAll() {
 
 // ===== UI =====
 function isProtectedBotMessage(t) {
-  return t.includes("key-fragment") || t.includes("HINT:") || t.includes("cmd-hl") || t.includes("sin-count");
+  return t.includes("key-fragment") || t.includes("HINT:") || t.includes("cmd-hl") || t.includes("sin-count") || t.includes("terminal-link");
 }
 function addMsg(t, cls) {
   const d = document.createElement("div");
@@ -1077,9 +1099,15 @@ async function handleFortune(val) {
 
 // ===== Terminal Handler =====
 async function handleTerminal(val) {
-  if (done) return;
   const trimmed = normText(val);
+  const linkRequested = isTerminalLinkTrigger(trimmed);
+  if (done && !linkRequested) return;
+
   showTyping(); await delay(400+Math.random()*300); removeTyping();
+  if (done) {
+    addBot(buildTerminalLinkMessage());
+    return;
+  }
 
   // Final keyword check
   const finalNorm = normKey(trimmed);
@@ -1120,6 +1148,12 @@ async function handleTerminal(val) {
     return;
   }
 
+  // Message site link trigger
+  if (linkRequested) {
+    addBot(buildTerminalLinkMessage());
+    return;
+  }
+
   // Wrong
   termFails++;
   let r = "不明なコマンド。認証キーワードを入力してください。";
@@ -1137,7 +1171,8 @@ async function send() {
   const v = inp.value.trim();
   if (!v) return;
   if (normKey(v) === "RESET") { resetAll(); return; }
-  if (done || busy) return;
+  const terminalLinkAllowed = mode === "terminal" && done && isTerminalLinkTrigger(v);
+  if ((done && !terminalLinkAllowed) || busy) return;
   inp.value = "";
   releaseInputForReading();
   busy = true;
