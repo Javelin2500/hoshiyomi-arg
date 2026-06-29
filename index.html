@@ -942,7 +942,7 @@ function applyModeShell(nextMode) {
     document.title = "\u2593\u2593\u2593 UNKNOWN TERMINAL \u2593\u2593\u2593";
     if (fortuneTitle) fortuneTitle.textContent = "\u2593\u2593\u2593 UNKNOWN TERMINAL \u2593\u2593\u2593";
     if (fortuneSubtitle) fortuneSubtitle.textContent = "SECURE CONNECTION ESTABLISHED";
-    inp.placeholder = done ? "RESETで初期化できます" : "コマンドを入力...";
+    inp.placeholder = done ? "" : "コマンドを入力...";
     sendBtn.textContent = "実行";
     return;
   }
@@ -983,7 +983,7 @@ function restoreState() {
     if (mode === "terminal") ensureMinazukiSystemMessage(true);
     inp.disabled = false;
     sendBtn.disabled = false;
-    if (done) inp.placeholder = "RESETで初期化できます";
+    if (done) inp.placeholder = "";
     syncViewportLayout(true);
     return true;
   } catch (_) {
@@ -1121,7 +1121,7 @@ async function handleTerminal(val) {
     await delay(1500);
     addBot("<div class=\"loc-reveal\">\u{1F4CD} " + escHtml(payload.location) + "</div>\n" + escHtml(payload.message));
     done = true;
-    inp.placeholder = "RESETで初期化できます";
+    inp.placeholder = "";
     saveState();
     return;
   }
