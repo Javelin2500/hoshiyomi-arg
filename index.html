@@ -560,9 +560,22 @@ const MAX_CORRUPTION_LEVEL = 5;
 const STORAGE_KEY = "hoshiyomiArgStateV2";
 const MINAZUKI_MESSAGE_ID = "minazuki-system-message";
 const MINAZUKI_TARGET_MS = Date.parse("2026-06-30T18:00:00+09:00");
-// TODO: Replace these placeholder trigger/URL values with the final message-site release values.
-const TERMINAL_LINK_TRIGGER = "星図外通信";
-const TERMINAL_LINK_URL = "https://www.google.com/";
+// Message-site release values. Update only this list/URL when replacing the keyword or destination.
+const TERMINAL_LINK_TRIGGERS = [
+  "みとみ",
+  "三富",
+  "ミトミ",
+  "みとみるね",
+  "みとみ瑠音",
+  "三富るね",
+  "三富ルネ",
+  "三富瑠音",
+  "三富 瑠音",
+  "瑠音",
+  "るね",
+  "ルネ"
+];
+const TERMINAL_LINK_URL = "https://c.meseca.jp/foryou/JXXD9B8YsI";
 const SHOOTING_STAR_IMAGES = [
   "assets/s/a7f4c1.jpg",
   "assets/s/d2b9e6.jpg",
@@ -895,7 +908,8 @@ function buildMinazukiSystemHtml() {
     + "<span class=\"terminal-countdown\">COUNTDOWN: " + escHtml(formatMinazukiCountdown()) + "</span>";
 }
 function isTerminalLinkTrigger(input) {
-  return normKey(input) === normKey(TERMINAL_LINK_TRIGGER);
+  const inputKey = normKey(input);
+  return TERMINAL_LINK_TRIGGERS.some(trigger => inputKey === normKey(trigger));
 }
 function buildTerminalLinkMessage() {
   const url = TERMINAL_LINK_URL;
